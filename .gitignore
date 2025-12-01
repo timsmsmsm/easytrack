@@ -53,14 +53,6 @@ htmlcov/
 .tox/
 .nox/
 
-# Data files (uncomment if you don't want to commit data)
-# *.tif
-# *.tiff
-# *.npy
-# *.npz
-# *.h5
-# *.hdf5
-
 # Large data directories (add your specific data folders)
 sqhAX3_SqhGFP-EcadTom/
 3d_data/
@@ -83,19 +75,10 @@ Desktop.ini
 .Spotlight-V100
 .Trashes
 
-# Btrack specific
-*.json.backup
-optimized_config_*.json
-
-# Config files that might contain sensitive info
-configs/*.json
-!configs/example_config.json
-
 # Output files
 outputs/
 results/
 *.csv
 
 # Example data (too large for git)
-example_data/
 *.czi
