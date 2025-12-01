@@ -82,3 +82,4 @@ results/
 
 # Example data (too large for git)
 *.czi
+example_data/
