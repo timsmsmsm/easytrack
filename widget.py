@@ -202,8 +202,8 @@ class BtrackPresetWidget:
         self.clean_button.tooltip = (
             "Removes disconnected fragments from each label.\n\n"
             "Keeps the largest piece and reassigns smaller bits to "
-            "neighboring labels. Useful to run before tracking to improve "
-            "segmentation quality."
+            "neighboring labels. Useful to run before tracking as btrack "
+            "cannot handle disconnected fragments well."
         )
         # Status label
         self.status_label = Label(value="Ready")

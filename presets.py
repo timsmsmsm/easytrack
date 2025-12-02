@@ -147,8 +147,7 @@ def get_presets() -> Dict[str, Dict[str, Any]]:
     """
     # Load optimized configs from disk (if they exist)
     disc2_params = load_preset_if_exists('configs/disc2_config.json')
-    wd11_params = load_preset_if_exists('configs/WD1.1_param_means.json')
-    wd32_params = load_preset_if_exists('configs/optimized_config_3d.json')
+    _3d_params = load_preset_if_exists('configs/optimized_config_3d.json')
     
     presets = {
         "Epithelial Cells (Default)": {
@@ -167,13 +166,13 @@ Optimized for epithelial tissue imaging:
 • For stitching of 3D stacks over Z-axis
 • Trained on 3D Wing disc data
             """,
-            "config": wd32_params
+            "config": _3d_params
         },
         "Custom JSON": {
             "description": """
 Load parameters from your own JSON config file:
 • Use the file browser below to select a config file
-• Must be in btrack JSON format
+• Must be in correct JSON format
 • All parameters will be loaded from the file
             """,
             "config": {}  # Empty, will be populated from file
