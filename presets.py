@@ -157,16 +157,15 @@ Optimized for epithelial tissue imaging:
 • Slow-moving cells in dense tissue
 • Minimal divisions
 • Strong cell-cell adhesion
-• Example: Wing disc epithelium, intestinal epithelium
-• Based on optimized Disc2 parameters (AOGM ~38.5)
+• Trained on Wing disc epithelium data
             """,
             "config": disc2_params
         },
         
         "Epithelial Cells (Z-tracking)": {
             "description": """
-For tracking in Z as opposed to time (3D):
-Allows for stitching of 3D stacks over Z-axis
+• For stitching of 3D stacks over Z-axis
+• Trained on 3D Wing disc data
             """,
             "config": wd32_params
         },
