@@ -24,6 +24,58 @@ from tracking import TrackingManager
 from utils import clean_segmentation, get_cleaning_stats
 
 
+# Parameter descriptions for tooltips
+PARAM_DESCRIPTIONS = {
+    'dist_thresh': (
+        "Distance Threshold (dist_thresh)\n\n"
+        "The maximum distance (in pixels or spatial units) that two cell positions "
+        "can be apart for the algorithm to consider linking them as part of the same track.\n\n"
+        "If two detections are farther apart than this, they won't be considered as "
+        "candidates for connecting into a continuous path."
+    ),
+    'theta_dist': (
+        "Border Distance Threshold (theta_dist)\n\n"
+        "A distance from the edge of the field of view.\n\n"
+        "This is used to decide if a cell track starting or ending near the border "
+        "might be a cell entering/exiting the imaging area (rather than appearing/disappearing "
+        "for other reasons like cell division or death).\n\n"
+        "Tracks starting or ending within this distance from the edge are treated differently."
+    ),
+    'segmentation_miss_rate': (
+        "Segmentation Miss Rate\n\n"
+        "The probability that the segmentation algorithm fails to detect a real cell "
+        "in any given frame.\n\n"
+        "This helps the tracker account for the fact that sometimes real cells might "
+        "be missed during segmentation."
+    ),
+    'lambda_link': (
+        "Lambda Link\n\n"
+        "A scaling factor that controls how much the distance between cell positions "
+        "affects the probability of linking them.\n\n"
+        "Smaller values make the algorithm more sensitive to distance (penalizing longer "
+        "distances more heavily), while larger values make it more permissive about "
+        "linking cells that are farther apart."
+    ),
+    'prob_not_assign': (
+        "Probability Not Assign\n\n"
+        "The probability that a detected/segmented object is NOT a real cell and should be ignored.\n\n"
+        "This is the OPPOSITE of segmentation_miss_rate:\n"
+        "  • segmentation_miss_rate: Real cells that were NOT detected (false negatives)\n"
+        "  • prob_not_assign: Detected objects that are NOT real cells (false positives)\n\n"
+        "Use this to handle noisy segmentation where some detections might be artifacts, "
+        "debris, or segmentation errors.\n\n"
+        "Lower values (0.01-0.05): Most detections are real cells.\n"
+        "Higher values (0.2-0.5): More detections might be spurious artifacts."
+    ),
+    'div_hypothesis': (
+        "Division Hypothesis\n\n"
+        "Enable tracking of cell divisions (P_branch hypothesis).\n\n"
+        "When enabled, the tracker will look for situations where one cell track "
+        "splits into two daughter cell tracks, allowing reconstruction of cell lineages."
+    )
+}
+
+
 class BtrackPresetWidget:
     """Main widget for btrack parameter preset selection."""
     
@@ -73,52 +125,52 @@ class BtrackPresetWidget:
         # Get initial preset params
         initial_preset = self.presets[preset_names[0]]["config"]
         
-        # Create sliders for key parameters
+        # Create sliders for key parameters with tooltips
         self.dist_thresh_slider = create_widget(
             value=initial_preset.get('dist_thresh', 40),
             annotation=int,
-            label="Distance Threshold (dist_thresh)",
+            label="dist_thresh",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 100.0}
+            options={"min": 0.0, "max": 100.0, "tooltip": PARAM_DESCRIPTIONS['dist_thresh']}
         )
         
         self.theta_dist_slider = create_widget(
             value=initial_preset.get('theta_dist', 20.0),
             annotation=float,
-            label="Distance Threshold (theta_dist)",
+            label="theta_dist",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 100.0}
+            options={"min": 0.0, "max": 100.0, "tooltip": PARAM_DESCRIPTIONS['theta_dist']}
         )
         
         self.seg_miss_slider = create_widget(
             value=initial_preset.get('segmentation_miss_rate', 0.1),
             annotation=float,
-            label="Segmentation Miss Rate",
+            label="segmentation_miss_rate",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 1.0}
+            options={"min": 0.0, "max": 1.0, "tooltip": PARAM_DESCRIPTIONS['segmentation_miss_rate']}
         )
         
         self.lambda_link_slider = create_widget(
             value=initial_preset.get('lambda_link', 10.0),
             annotation=int,
-            label="Lambda Link",
+            label="lambda_link",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 100.0}
+            options={"min": 0.0, "max": 100.0, "tooltip": PARAM_DESCRIPTIONS['lambda_link']}
         )
         
         self.prob_not_assign_slider = create_widget(
             value=initial_preset.get('prob_not_assign', 0.1),
             annotation=float,
-            label="Prob Not Assign",
+            label="prob_not_assign",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 0.5}
+            options={"min": 0.0, "max": 0.5, "tooltip": PARAM_DESCRIPTIONS['prob_not_assign']}
         )
         
         # Division hypothesis toggle (0 or 1)
         self.div_hypothesis_checkbox = CheckBox(
             value=bool(initial_preset.get('div_hypothesis', 1)),
-            label="Enable Division Hypothesis",
-            tooltip="Enable tracking of cell divisions (P_branch hypothesis)"
+            label="div_hypothesis",
+            tooltip=PARAM_DESCRIPTIONS['div_hypothesis']
         )
         
         # Divider
@@ -138,17 +190,21 @@ class BtrackPresetWidget:
         self.cancel_button = PushButton(text="❌ Cancel Tracking")
         self.cancel_button.clicked.connect(self._on_cancel_clicked)
         self.cancel_button.enabled = False  # Initially disabled
+        self.cancel_button.tooltip = (
+            "Cancel the current tracking operation.\n\n"
+            "If a tracking run is taking longer than usual, it's best to cancel it. "
+            "This typically means the parameters have been badly selected, and the "
+            "result will likely be poor anyway."
+        )
         
         self.clean_button = PushButton(text="🧹 Clean Segmentation")
         self.clean_button.clicked.connect(self._on_clean_clicked)
-        
-        # Clean button description
-        self.clean_description = Label(
-            value="<small>Removes disconnected fragments from each label.<br>"
-                  "Keeps largest piece, reassigns smaller bits to<br>"
-                  "neighboring labels. Useful before tracking.</small>"
+        self.clean_button.tooltip = (
+            "Removes disconnected fragments from each label.\n\n"
+            "Keeps the largest piece and reassigns smaller bits to "
+            "neighboring labels. Useful to run before tracking to improve "
+            "segmentation quality."
         )
-        
         # Status label
         self.status_label = Label(value="Ready")
         
@@ -175,7 +231,6 @@ class BtrackPresetWidget:
             self.track_button,
             self.cancel_button,
             self.clean_button,
-            self.clean_description,
             self.status_label,
             self.progress_label,
         ])
