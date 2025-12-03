@@ -8,11 +8,13 @@ Provides a GUI for:
 - Monitoring and cancelling tracking operations
 - Cleaning segmentation (remove fragments)
 - Visualizing tracks as napari tracks layer
+- Saving current parameters to JSON config file
 """
 
 from pathlib import Path
 from typing import Optional
 import traceback
+import json
 
 import napari
 import numpy as np
@@ -20,7 +22,7 @@ from magicgui import magicgui
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from presets import get_presets, load_config_from_json
+from presets import get_presets, load_config_from_json, create_btrack_config_dict
 from tracking import TrackingManager
 from utils import clean_segmentation, get_cleaning_stats
 
@@ -206,6 +208,14 @@ class BtrackPresetWidget:
             "neighboring labels. Useful to run before tracking as btrack "
             "cannot handle disconnected fragments well."
         )
+        
+        self.save_config_button = PushButton(text="💾 Save Config (JSON)")
+        self.save_config_button.clicked.connect(self._on_save_config_clicked)
+        self.save_config_button.tooltip = (
+            "Save current parameters to a JSON config file.\n\n"
+            "The saved file can be loaded later using the 'Custom JSON' preset option."
+        )
+        
         # Status label
         self.status_label = Label(value="Ready")
         
@@ -232,6 +242,7 @@ class BtrackPresetWidget:
             self.track_button,
             self.cancel_button,
             self.clean_button,
+            self.save_config_button,
             self.status_label,
             self.progress_label,
         ])
@@ -305,6 +316,47 @@ class BtrackPresetWidget:
         params['div_hypothesis'] = 1 if self.div_hypothesis_checkbox.value else 0
         
         return params
+    
+    def _on_save_config_clicked(self):
+        """Handle save config button click."""
+        from qtpy.QtWidgets import QFileDialog
+        
+        # Get current parameters
+        params = self._get_current_params()
+        
+        # Create full btrack config dictionary
+        config_dict = create_btrack_config_dict(params)
+        
+        # Open save dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Config File",
+            "my_config.json",
+            "JSON Files (*.json)"
+        )
+        
+        if not file_path:
+            # User cancelled
+            return
+        
+        # Ensure .json extension
+        if not file_path.endswith('.json'):
+            file_path += '.json'
+        
+        try:
+            # Save to file
+            with open(file_path, 'w') as f:
+                json.dump(config_dict, f, indent=2)
+            
+            self.status_label.value = f"✅ Config saved!"
+            self.progress_label.value = f"Saved to: {Path(file_path).name}"
+            print(f"\n✅ Configuration saved to: {file_path}")
+            
+        except Exception as e:
+            self.status_label.value = "❌ Failed to save config"
+            self.progress_label.value = f"Error: {str(e)}"
+            print(f"Error saving config: {e}")
+            traceback.print_exc()
     
     def _on_clean_clicked(self):
         """Handle clean button click."""
