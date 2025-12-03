@@ -6,6 +6,7 @@ Data Loading:
 - Load single 3D/4D stacks
 - Auto-detection of data format (labeled vs binary)
 - Flexible cropping and channel selection
+- Support for 3D+T data (T, Z, Y, X)
 
 Segmentation Processing:
 - Clean segmentation (remove fragments)
@@ -32,7 +33,7 @@ from skimage import io
 # ============= DATA LOADING =============
 
 def load_files_from_pattern(directory, pattern='*.tif', convert_to_labels=True, 
-                            crop_edges=False, crop_pixels=2):
+                            crop_edges=False, crop_pixels=2, keep_z=True):
     """
     Load multiple image files matching a pattern (e.g., time series).
     
@@ -42,9 +43,12 @@ def load_files_from_pattern(directory, pattern='*.tif', convert_to_labels=True,
         convert_to_labels: If True, convert binary/skeleton to labeled regions
         crop_edges: If True, crop top and bottom edges
         crop_pixels: Number of pixels to crop from top/bottom
+        keep_z: If True and files are 3D, keep Z dimension (output: T, Z, Y, X)
+                If False and files are 3D, take max projection (output: T, Y, X)
     
     Returns:
-        3D numpy array (T, Y, X)
+        3D numpy array (T, Y, X) if files are 2D or keep_z=False
+        4D numpy array (T, Z, Y, X) if files are 3D and keep_z=True
     """
     directory = Path(directory)
     
@@ -61,34 +65,75 @@ def load_files_from_pattern(directory, pattern='*.tif', convert_to_labels=True,
     
     print(f"  Loading {len(files)} files from pattern: {pattern}")
     
-    # Check first file for multi-channel
+    # Check first file to determine format
     first_frame = io.imread(files[0])
-    if first_frame.ndim == 3:
-        print(f"  Multi-channel image detected: {first_frame.shape}")
-        channel_vars = [first_frame[i].var() for i in range(first_frame.shape[0])]
-        channel_idx = np.argmax(channel_vars)
-        print(f"  Using channel {channel_idx} (highest variance)")
-    else:
+    print(f"  First file shape: {first_frame.shape}, dtype: {first_frame.dtype}")
+    
+    # Determine if this is 2D or 3D data per timepoint
+    if first_frame.ndim == 2:
+        # Simple 2D frames
+        print(f"  Detected: 2D frames (will output T, Y, X)")
+        is_3d = False
         channel_idx = None
+        
+    elif first_frame.ndim == 3:
+        # Could be multi-channel 2D, or 3D volumes (Z-stacks)
+        # Heuristic: if first dimension is small (<5), likely channels
+        # Otherwise, likely Z-slices
+        
+        if first_frame.shape[0] < 5:
+            # Likely channels
+            print(f"  Detected: Multi-channel 2D with {first_frame.shape[0]} channels")
+            channel_vars = [first_frame[i].var() for i in range(first_frame.shape[0])]
+            channel_idx = np.argmax(channel_vars)
+            print(f"  Using channel {channel_idx} (highest variance)")
+            is_3d = False
+        else:
+            # Likely Z-stacks
+            print(f"  Detected: 3D volumes with {first_frame.shape[0]} Z-slices")
+            if keep_z:
+                print(f"  Will output 4D: (T, Z, Y, X)")
+            else:
+                print(f"  Will take max Z-projection, output 3D: (T, Y, X)")
+            is_3d = True
+            channel_idx = None
+    else:
+        raise ValueError(f"Unsupported frame dimensionality: {first_frame.ndim}D")
     
     all_frames = []
     for file in files:
         frame = io.imread(file)
         
-        # Extract channel if multi-channel
+        # Extract channel if multi-channel 2D
         if channel_idx is not None:
             frame = frame[channel_idx]
         
-        # Crop edges if requested
+        # Handle 3D volumes
+        if is_3d:
+            if not keep_z:
+                # Take max projection across Z
+                frame = frame.max(axis=0)
+        
+        # Crop edges if requested (applies to Y dimension)
         if crop_edges and crop_pixels > 0:
-            frame = frame[crop_pixels:-crop_pixels, :]
+            if is_3d and keep_z:
+                frame = frame[:, crop_pixels:-crop_pixels, :]
+            else:
+                frame = frame[crop_pixels:-crop_pixels, :]
         
         # Check if already labeled
         is_labeled = _is_already_labeled(frame)
         
         # Convert to labels if needed and not already labeled
         if convert_to_labels and not is_labeled:
-            frame = _convert_to_labels(frame)
+            if is_3d and keep_z:
+                # Convert each Z-slice
+                labeled_frame = np.zeros(frame.shape, dtype=np.int32)
+                for z in range(frame.shape[0]):
+                    labeled_frame[z] = _convert_to_labels(frame[z])
+                frame = labeled_frame
+            else:
+                frame = _convert_to_labels(frame)
         
         all_frames.append(frame)
     
@@ -99,7 +144,10 @@ def load_files_from_pattern(directory, pattern='*.tif', convert_to_labels=True,
         stacked = stacked.astype(np.uint16)
     
     print(f"  Loaded shape: {stacked.shape}, dtype: {stacked.dtype}")
-    print(f"  Labels per frame (first): {len(np.unique(stacked[0])) - 1}")
+    if stacked.ndim == 3:
+        print(f"  Labels per frame (first): {len(np.unique(stacked[0])) - 1}")
+    elif stacked.ndim == 4:
+        print(f"  Labels per frame (first Z-slice of first time): {len(np.unique(stacked[0, 0])) - 1}")
     
     return stacked
 
@@ -140,18 +188,18 @@ def load_single_stack(file_path, convert_to_labels=True, crop_edges=False, crop_
         
     elif data.ndim == 4:
         # Could be (T, C, Y, X) or (T, Z, Y, X)
-        if data.shape[1] < 10:
-            # Likely channels (usually <10 channels)
+        if data.shape[1] < 4:
+            # Likely channels (usually <4 channels)
             print(f"  Detected {data.shape[1]} channels")
             channel_vars = [data[:, i].var() for i in range(data.shape[1])]
             channel_idx = np.argmax(channel_vars)
             print(f"  Using channel {channel_idx} (highest variance)")
             stack = data[:, channel_idx]
         else:
-            # Likely (T, Z, Y, X) - take max projection or middle slice
+            # Likely (T, Z, Y, X) - keep as 4D for 3D+T tracking
             print(f"  Detected Z-dimension: {data.shape[1]} slices")
-            print(f"  Taking maximum projection across Z")
-            stack = data.max(axis=1)
+            print(f"  Keeping as 4D for 3D+T tracking: (T, Z, Y, X)")
+            stack = data
     else:
         raise ValueError(f"Unsupported data shape: {data.shape}")
     
@@ -159,7 +207,10 @@ def load_single_stack(file_path, convert_to_labels=True, crop_edges=False, crop_
     
     # Crop if requested
     if crop_edges and crop_pixels > 0:
-        stack = stack[:, crop_pixels:-crop_pixels, :]
+        if stack.ndim == 4:
+            stack = stack[:, :, crop_pixels:-crop_pixels, :]
+        else:
+            stack = stack[:, crop_pixels:-crop_pixels, :]
         print(f"  After cropping: {stack.shape}")
     
     # Check if already labeled
@@ -176,18 +227,29 @@ def load_single_stack(file_path, convert_to_labels=True, crop_edges=False, crop_
     if convert_to_labels:
         print(f"  Converting binary/skeleton to labels...")
         labeled_stack = np.zeros(stack.shape, dtype=np.int32)
-        for i in range(stack.shape[0]):
-            labeled_stack[i] = _convert_to_labels(stack[i])
+        
+        if stack.ndim == 4:
+            # 4D: convert each Z-slice in each timepoint
+            for t in range(stack.shape[0]):
+                for z in range(stack.shape[1]):
+                    labeled_stack[t, z] = _convert_to_labels(stack[t, z])
+        else:
+            # 3D: convert each timepoint/slice
+            for i in range(stack.shape[0]):
+                labeled_stack[i] = _convert_to_labels(stack[i])
         stack = labeled_stack
     
     print(f"  Final shape: {stack.shape}, dtype: {stack.dtype}")
-    print(f"  Labels per frame (first): {len(np.unique(stack[0])) - 1}")
+    if stack.ndim == 3:
+        print(f"  Labels per frame (first): {len(np.unique(stack[0])) - 1}")
+    elif stack.ndim == 4:
+        print(f"  Labels per frame (first Z-slice of first time): {len(np.unique(stack[0, 0])) - 1}")
     
     return stack
 
 
 def load_segmentation(path, pattern='*.tif', convert_to_labels=True, 
-                     crop_edges=False, crop_pixels=2):
+                     crop_edges=False, crop_pixels=2, keep_z=True):
     """
     Smart loader that automatically determines format and loads appropriately.
     
@@ -197,9 +259,10 @@ def load_segmentation(path, pattern='*.tif', convert_to_labels=True,
         convert_to_labels: Convert binary/skeleton to labeled regions
         crop_edges: Crop top/bottom edges
         crop_pixels: Amount to crop
+        keep_z: For 3D data, keep Z dimension (True) or max project (False)
         
     Returns:
-        3D numpy array (T/Z, Y, X)
+        3D numpy array (T/Z, Y, X) or 4D array (T, Z, Y, X) for 3D+T data
         
     Examples:
         # Load single stack
@@ -207,6 +270,9 @@ def load_segmentation(path, pattern='*.tif', convert_to_labels=True,
         
         # Load multiple files
         seg = load_segmentation('data/timelapse/', pattern='frame_*.tif')
+        
+        # Load 3D+T data
+        seg = load_segmentation('data/3d_timelapse/', keep_z=True)
     """
     path = Path(path)
     
@@ -215,7 +281,7 @@ def load_segmentation(path, pattern='*.tif', convert_to_labels=True,
         return load_single_stack(path, convert_to_labels, crop_edges, crop_pixels)
     elif path.is_dir():
         # Directory with multiple files
-        return load_files_from_pattern(path, pattern, convert_to_labels, crop_edges, crop_pixels)
+        return load_files_from_pattern(path, pattern, convert_to_labels, crop_edges, crop_pixels, keep_z)
     else:
         raise ValueError(f"Path does not exist: {path}")
 
@@ -267,8 +333,10 @@ def clean_segmentation(segmentation, verbose=True):
     
     Uses 4-connectivity (no diagonals) for both component detection and neighbor finding.
     
+    Works with both 2D+T (T, Y, X) and 3D+T (T, Z, Y, X) data.
+    
     Args:
-        segmentation: 3D array (T, Y, X) with integer labels
+        segmentation: 3D array (T, Y, X) or 4D array (T, Z, Y, X) with integer labels
         verbose: If True, print progress information
         
     Returns:
@@ -286,69 +354,120 @@ def clean_segmentation(segmentation, verbose=True):
         print("CLEANING SEGMENTATION")
         print("="*60)
     
-    for t in range(segmentation.shape[0]):
-        frame = cleaned[t]
-        unique_labels = np.unique(frame)
-        unique_labels = unique_labels[unique_labels > 0]  # Skip background
-        
-        frame_reassigned = 0
-        
-        for label_id in unique_labels:
-            # Get mask for this label
-            mask = (frame == label_id)
+    is_3d = segmentation.ndim == 4
+    n_timepoints = segmentation.shape[0]
+    
+    for t in range(n_timepoints):
+        if is_3d:
+            # For 3D+T, process the entire 3D volume at each timepoint
+            volume = cleaned[t]
+            unique_labels = np.unique(volume)
+            unique_labels = unique_labels[unique_labels > 0]
             
-            # Find connected components using 4-connectivity
-            structure = np.array([[0, 1, 0],
-                                 [1, 1, 1],
-                                 [0, 1, 0]], dtype=bool)
-            labeled_components, num_components = ndimage.label(mask, structure=structure)
+            frame_reassigned = 0
             
-            if num_components > 1:
-                # Multiple components - keep only the largest
-                component_sizes = ndimage.sum(mask, labeled_components, range(1, num_components + 1))
-                largest_component_idx = np.argmax(component_sizes) + 1
+            for label_id in unique_labels:
+                mask = (volume == label_id)
                 
-                # Process each smaller component
-                for component_idx in range(1, num_components + 1):
-                    if component_idx == largest_component_idx:
-                        continue
+                # 3D connectivity structure (6-connectivity: face neighbors only)
+                structure = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+                                     [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+                                     [[0, 0, 0], [0, 1, 0], [0, 0, 0]]], dtype=bool)
+                
+                labeled_components, num_components = ndimage.label(mask, structure=structure)
+                
+                if num_components > 1:
+                    component_sizes = ndimage.sum(mask, labeled_components, range(1, num_components + 1))
+                    largest_component_idx = np.argmax(component_sizes) + 1
                     
-                    # Get mask for this small component
-                    component_mask = (labeled_components == component_idx)
-                    
-                    # Find neighboring labels (4-connected)
-                    neighbor_counts = {}
-                    component_coords = np.argwhere(component_mask)
-                    
-                    for y, x in component_coords:
-                        # Check 4 neighbors (up, down, left, right)
-                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                            ny, nx = y + dy, x + dx
-                            
-                            # Check bounds
-                            if 0 <= ny < frame.shape[0] and 0 <= nx < frame.shape[1]:
-                                neighbor_label = frame[ny, nx]
+                    for component_idx in range(1, num_components + 1):
+                        if component_idx == largest_component_idx:
+                            continue
+                        
+                        component_mask = (labeled_components == component_idx)
+                        neighbor_counts = {}
+                        component_coords = np.argwhere(component_mask)
+                        
+                        # Check 6-connected neighbors in 3D
+                        for z, y, x in component_coords:
+                            for dz, dy, dx in [(0, -1, 0), (0, 1, 0), (0, 0, -1), 
+                                              (0, 0, 1), (-1, 0, 0), (1, 0, 0)]:
+                                nz, ny, nx = z + dz, y + dy, x + dx
                                 
-                                # Count neighbors that are different labels
-                                if neighbor_label > 0 and neighbor_label != label_id:
-                                    neighbor_counts[neighbor_label] = neighbor_counts.get(neighbor_label, 0) + 1
+                                if (0 <= nz < volume.shape[0] and 
+                                    0 <= ny < volume.shape[1] and 
+                                    0 <= nx < volume.shape[2]):
+                                    neighbor_label = volume[nz, ny, nx]
+                                    
+                                    if neighbor_label > 0 and neighbor_label != label_id:
+                                        neighbor_counts[neighbor_label] = neighbor_counts.get(neighbor_label, 0) + 1
+                        
+                        if neighbor_counts:
+                            most_common_neighbor = max(neighbor_counts, key=neighbor_counts.get)
+                            cleaned[t][component_mask] = most_common_neighbor
+                            frame_reassigned += np.sum(component_mask)
+                        else:
+                            cleaned[t][component_mask] = 0
+                            frame_reassigned += np.sum(component_mask)
+            
+            if verbose and frame_reassigned > 0:
+                print(f"  Timepoint {t}: reassigned {frame_reassigned} voxels")
+                total_reassigned += frame_reassigned
+                
+        else:
+            # Original 2D+T code
+            frame = cleaned[t]
+            unique_labels = np.unique(frame)
+            unique_labels = unique_labels[unique_labels > 0]
+            
+            frame_reassigned = 0
+            
+            for label_id in unique_labels:
+                mask = (frame == label_id)
+                
+                # 4-connectivity structure
+                structure = np.array([[0, 1, 0],
+                                     [1, 1, 1],
+                                     [0, 1, 0]], dtype=bool)
+                labeled_components, num_components = ndimage.label(mask, structure=structure)
+                
+                if num_components > 1:
+                    component_sizes = ndimage.sum(mask, labeled_components, range(1, num_components + 1))
+                    largest_component_idx = np.argmax(component_sizes) + 1
                     
-                    # Reassign to most common neighbor, or remove if no neighbors
-                    if neighbor_counts:
-                        most_common_neighbor = max(neighbor_counts, key=neighbor_counts.get)
-                        cleaned[t][component_mask] = most_common_neighbor
-                        frame_reassigned += np.sum(component_mask)
-                    else:
-                        # No neighbors found, set to background
-                        cleaned[t][component_mask] = 0
-                        frame_reassigned += np.sum(component_mask)
-        
-        if verbose and frame_reassigned > 0:
-            print(f"  Frame {t}: reassigned {frame_reassigned} pixels")
-            total_reassigned += frame_reassigned
+                    for component_idx in range(1, num_components + 1):
+                        if component_idx == largest_component_idx:
+                            continue
+                        
+                        component_mask = (labeled_components == component_idx)
+                        neighbor_counts = {}
+                        component_coords = np.argwhere(component_mask)
+                        
+                        for y, x in component_coords:
+                            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                                ny, nx = y + dy, x + dx
+                                
+                                if 0 <= ny < frame.shape[0] and 0 <= nx < frame.shape[1]:
+                                    neighbor_label = frame[ny, nx]
+                                    
+                                    if neighbor_label > 0 and neighbor_label != label_id:
+                                        neighbor_counts[neighbor_label] = neighbor_counts.get(neighbor_label, 0) + 1
+                        
+                        if neighbor_counts:
+                            most_common_neighbor = max(neighbor_counts, key=neighbor_counts.get)
+                            cleaned[t][component_mask] = most_common_neighbor
+                            frame_reassigned += np.sum(component_mask)
+                        else:
+                            cleaned[t][component_mask] = 0
+                            frame_reassigned += np.sum(component_mask)
+            
+            if verbose and frame_reassigned > 0:
+                print(f"  Frame {t}: reassigned {frame_reassigned} pixels")
+                total_reassigned += frame_reassigned
     
     if verbose:
-        print(f"\nTotal pixels reassigned: {total_reassigned}")
+        unit = "voxels" if is_3d else "pixels"
+        print(f"\nTotal {unit} reassigned: {total_reassigned}")
         print("="*60 + "\n")
     
     return cleaned

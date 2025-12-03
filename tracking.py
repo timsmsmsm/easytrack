@@ -5,6 +5,7 @@ Handles:
 - Running btrack tracking in a separate process
 - Monitoring progress and managing cancellation
 - File-based communication to avoid Queue size limits
+- Exporting tracks to napari
 """
 
 import os
@@ -57,7 +58,17 @@ def run_tracking_process(
             segmentation.astype(segmentation.dtype.newbyteorder('='))
         )
         
-        T, Y, X = segmentation.shape
+        # Handle both 2D+T and 3D+T data
+        if segmentation.ndim == 3:
+            # 2D+T: (T, Y, X)
+            T, Y, X = segmentation.shape
+            print(f"[CHILD] Detected 2D+T data: T={T}, Y={Y}, X={X}")
+        elif segmentation.ndim == 4:
+            # 3D+T: (T, Z, Y, X)
+            T, Z, Y, X = segmentation.shape
+            print(f"[CHILD] Detected 3D+T data: T={T}, Z={Z}, Y={Y}, X={X}")
+        else:
+            raise ValueError(f"Unsupported segmentation shape: {segmentation.shape}")
         
         progress_queue.put(f"Extracting objects from {T} frames...")
         print(f"[CHILD] Extracting objects...")
@@ -85,8 +96,19 @@ def run_tracking_process(
         # Enable optimization
         conf.enable_optimisation = True
         
-        # Define volume
-        volume = ((0, T), (0, X), (0, Y))
+        # Define volume based on dimensionality
+        # Note: btrack's ImagingVolume is for SPATIAL dimensions only (not time)
+        # For 2D: (X, Y) or for 3D: (X, Y, Z)
+        # Time is handled separately by the tracker
+        
+        if segmentation.ndim == 3:
+            # 2D+T: spatial volume is (X, Y) in btrack's reversed order
+            volume = ((0, X), (0, Y))
+            print(f"[CHILD] Spatial volume (2D): X=[0,{X}], Y=[0,{Y}]")
+        else:
+            # 3D+T: spatial volume is (X, Y, Z) in btrack's reversed order
+            volume = ((0, X), (0, Y), (0, Z))
+            print(f"[CHILD] Spatial volume (3D): X=[0,{X}], Y=[0,{Y}], Z=[0,{Z}]")
         
         progress_queue.put("Running btrack tracking and optimization...")
         print(f"[CHILD] Starting btrack...")
@@ -94,7 +116,7 @@ def run_tracking_process(
         # Track
         with btrack.BayesianTracker(verbose=True) as tracker:
             tracker.configure(conf)
-            tracker.volume = volume[::-1]  # Reverse for btrack
+            tracker.volume = volume  # Set spatial volume (not including time)
             tracker.max_search_radius = params['max_search_radius']
             tracker.append(objects)
             
@@ -107,6 +129,62 @@ def run_tracking_process(
             print(f"[CHILD] Updating segmentation with {len(tracker.tracks)} tracks...")
             # Get results
             tracked_seg = utils.update_segmentation(segmentation, tracker.tracks)
+            
+            # Get tracks in napari format
+            print(f"[CHILD] Exporting tracks to napari...")
+            napari_data, napari_properties, napari_graph = tracker.to_napari()
+            
+            # Convert graph from array to dict if necessary
+            # Napari expects graph as a dict: {node_id: [parent_ids]}
+            if isinstance(napari_graph, np.ndarray):
+                if napari_graph.size == 0:
+                    print(f"[CHILD] Graph is empty array, converting to empty dict")
+                    napari_graph = {}
+                else:
+                    # btrack might return graph as array - need to convert
+                    # Typically graph is (N, 2) array of [child, parent] pairs
+                    print(f"[CHILD] Converting graph array to dict for napari")
+                    graph_dict = {}
+                    if napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
+                        for child, parent in napari_graph:
+                            child_id = int(child)
+                            parent_id = int(parent)
+                            if child_id not in graph_dict:
+                                graph_dict[child_id] = []
+                            graph_dict[child_id].append(parent_id)
+                    napari_graph = graph_dict
+                    print(f"[CHILD] Converted graph dict has {len(napari_graph)} nodes")
+            
+            # Fix dimensionality mismatch between btrack output and input data
+            # btrack always returns [track_id, t, z, y, x] (5 cols)
+            # but for 2D+T data (shape: T, Y, X), we need [track_id, t, y, x] (4 cols)
+            # and for 3D+T data (shape: T, Z, Y, X), we keep all 5 cols
+            
+            if napari_data.shape[1] == 5 and segmentation.ndim == 3:
+                # Input is 2D+T (T, Y, X), so remove the Z column
+                z_column = napari_data[:, 2]
+                z_range = z_column.max() - z_column.min()
+                print(f"[CHILD] Input is 2D+T (shape: {segmentation.shape})")
+                print(f"[CHILD] Z column range: {z_range} (should be ~0 for 2D tracking)")
+                print(f"[CHILD] Removing Z column to match 2D+T format...")
+                
+                # Remove Z column: [track_id, t, z, y, x] -> [track_id, t, y, x]
+                napari_data = np.column_stack([
+                    napari_data[:, 0],  # track_id
+                    napari_data[:, 1],  # t
+                    napari_data[:, 3],  # y (skip z at index 2)
+                    napari_data[:, 4]   # x
+                ])
+                print(f"[CHILD] After removing Z: shape={napari_data.shape}")
+                
+            elif napari_data.shape[1] == 5 and segmentation.ndim == 4:
+                # Input is 3D+T (T, Z, Y, X), keep all columns
+                print(f"[CHILD] Input is 3D+T (shape: {segmentation.shape})")
+                print(f"[CHILD] Keeping all 5 columns [track_id, t, z, y, x]")
+                # napari_data stays as is
+            
+            else:
+                print(f"[CHILD] Unexpected data format: napari shape={napari_data.shape}, seg shape={segmentation.shape}")
             
             track_info = {
                 'total_tracks': len(tracker.tracks),
@@ -123,6 +201,24 @@ def run_tracking_process(
         
         # Save results to files
         np.save(output_file, tracked_seg)
+        
+        # Save napari tracks data
+        napari_output_file = output_file.replace('.npy', '_napari.npz')
+        
+        # Save properties dict more carefully
+        # Properties is a dict where each key maps to an array
+        properties_dict = {}
+        for key, value in napari_properties.items():
+            properties_dict[f'prop_{key}'] = value
+        
+        # Save with allow_pickle for graph (could be dict)
+        np.savez(
+            napari_output_file,
+            data=napari_data,
+            properties_keys=list(napari_properties.keys()),
+            graph=napari_graph,  # This could be dict or array
+            **properties_dict
+        )
         
         # Save track info
         info_file = output_file.replace('.npy', '_info.json')
@@ -153,7 +249,7 @@ class TrackingMonitor(QThread):
     a separate process that's doing the actual tracking work.
     """
     
-    finished = Signal(object, object)  # tracked_segmentation, track_info
+    finished = Signal(object, object, object, object, object)  # tracked_seg, track_info, napari_data, napari_properties, napari_graph
     error = Signal(str)
     progress = Signal(str)
     
@@ -217,8 +313,29 @@ class TrackingMonitor(QThread):
                         info_file = self.output_file.replace('.npy', '_info.json')
                         with open(info_file, 'r') as f:
                             track_info = json.load(f)
+                        
+                        # Load napari tracks data
+                        napari_file = self.output_file.replace('.npy', '_napari.npz')
+                        napari_npz = np.load(napari_file, allow_pickle=True)
+                        napari_data = napari_npz['data']
+                        
+                        # Reconstruct properties dict
+                        properties_keys = napari_npz['properties_keys']
+                        if len(properties_keys) == 0:
+                            # Empty properties dict
+                            napari_properties = {}
+                        else:
+                            napari_properties = {
+                                key: napari_npz[f'prop_{key}'] 
+                                for key in properties_keys
+                            }
+                        
+                        napari_graph = napari_npz['graph']
+                        
                         print(f"[MONITOR] Loaded results: {track_info}")
-                        self.finished.emit(tracked_seg, track_info)
+                        print(f"[MONITOR] Napari tracks shape: {napari_data.shape}")
+                        print(f"[MONITOR] Napari properties keys: {list(napari_properties.keys())}")
+                        self.finished.emit(tracked_seg, track_info, napari_data, napari_properties, napari_graph)
                     elif self.status_flag.value == -1:
                         print(f"[MONITOR] Process reported error")
                         self.error.emit("Tracking process reported an error. Check console for details.")
@@ -277,7 +394,7 @@ class TrackingManager:
             segmentation: 3D numpy array (T, Y, X)
             params: Tracking parameters
             on_progress: Callback for progress updates (str)
-            on_finished: Callback for completion (tracked_seg, track_info)
+            on_finished: Callback for completion (tracked_seg, track_info, napari_data, napari_properties, napari_graph)
             on_error: Callback for errors (error_msg)
             
         Returns:

@@ -7,6 +7,7 @@ Provides a GUI for:
 - Running tracking on segmentation layers
 - Monitoring and cancelling tracking operations
 - Cleaning segmentation (remove fragments)
+- Visualizing tracks as napari tracks layer
 """
 
 from pathlib import Path
@@ -316,12 +317,13 @@ class BtrackPresetWidget:
         
         segmentation = seg_layer.data
         
-        # Validate it's 3D
-        if segmentation.ndim != 3:
-            self.status_label.value = "❌ Segmentation must be 3D (T, Y, X)"
+        # Validate it's 3D or 4D
+        if segmentation.ndim not in [3, 4]:
+            self.status_label.value = "❌ Segmentation must be 3D (T, Y, X) or 4D (T, Z, Y, X)"
             return
         
-        self.status_label.value = "🔄 Cleaning segmentation..."
+        data_type = "2D+T" if segmentation.ndim == 3 else "3D+T"
+        self.status_label.value = f"🔄 Cleaning {data_type} segmentation..."
         self.progress_label.value = "Removing fragments and reassigning pixels..."
         
         try:
@@ -365,10 +367,15 @@ class BtrackPresetWidget:
         
         segmentation = seg_layer.data
         
-        # Validate it's a time series
-        if segmentation.ndim != 3:
-            self.status_label.value = "❌ Segmentation must be 3D (T, Y, X)"
+        # Validate it's a time series (3D for 2D+T or 4D for 3D+T)
+        if segmentation.ndim not in [3, 4]:
+            self.status_label.value = "❌ Segmentation must be 3D (T, Y, X) or 4D (T, Z, Y, X)"
             return
+        
+        if segmentation.ndim == 3:
+            print(f"Detected 2D+T data: {segmentation.shape} (T, Y, X)")
+        elif segmentation.ndim == 4:
+            print(f"Detected 3D+T data: {segmentation.shape} (T, Z, Y, X)")
         
         # Get parameters
         params = self._get_current_params()
@@ -407,13 +414,104 @@ class BtrackPresetWidget:
         """Handle progress updates from monitor."""
         self.progress_label.value = message
     
-    def _on_tracking_finished(self, tracked_seg, track_info):
+    def _on_tracking_finished(self, tracked_seg, track_info, napari_data, napari_properties, napari_graph):
         """Handle successful tracking completion."""
-        # Add result as new layer
+        # Add result as new labels layer
         preset_name = self.preset_selector.value
-        layer_name = f"Tracked ({preset_name})"
+        labels_layer_name = f"Tracked Labels ({preset_name})"
         
-        self.viewer.add_labels(tracked_seg, name=layer_name)
+        self.viewer.add_labels(tracked_seg, name=labels_layer_name)
+        
+        # Add tracks layer
+        tracks_layer_name = f"Tracks ({preset_name})"
+        try:
+            print(f"\n{'='*60}")
+            print(f"ADDING TRACKS LAYER")
+            print(f"{'='*60}")
+            print(f"Track data shape: {napari_data.shape}")
+            print(f"Track data dtype: {napari_data.dtype}")
+            print(f"Track data first 10 rows:")
+            print(napari_data[:10])
+            print(f"Unique track IDs: {len(np.unique(napari_data[:, 0]))} tracks")
+            print(f"Track ID range: {napari_data[:, 0].min():.0f} to {napari_data[:, 0].max():.0f}")
+            print(f"Tracked segmentation shape: {tracked_seg.shape}")
+            print(f"Properties type: {type(napari_properties)}")
+            print(f"Properties keys: {list(napari_properties.keys()) if isinstance(napari_properties, dict) else 'N/A'}")
+            print(f"Graph type: {type(napari_graph)}")
+            print(f"Graph dtype: {napari_graph.dtype if isinstance(napari_graph, np.ndarray) else 'N/A'}")
+            print(f"Graph shape: {napari_graph.shape if isinstance(napari_graph, np.ndarray) else 'N/A'}")
+            
+            print(f"\nColumn statistics:")
+            for i in range(napari_data.shape[1]):
+                col_name = ['track_id', 'dim0', 'dim1', 'dim2', 'dim3', 'dim4'][i] if i < 6 else f'col{i}'
+                print(f"  {col_name} (col {i}): min={napari_data[:, i].min():.2f}, max={napari_data[:, i].max():.2f}")
+            print(f"{'='*60}")
+            
+            # Handle empty properties dict - napari expects None or a proper dict
+            if napari_properties is not None:
+                if isinstance(napari_properties, dict) and len(napari_properties) == 0:
+                    print(f"Converting empty properties dict to None")
+                    napari_properties = None
+            
+            # Handle graph - napari expects a dict {node_id: [parent_ids]} or None
+            # Graph might be saved as 0-d array containing a dict (numpy object array)
+            if napari_graph is not None:
+                if isinstance(napari_graph, np.ndarray):
+                    # Check if it's a 0-d array (scalar) containing an object
+                    if napari_graph.shape == ():
+                        print(f"Graph is 0-d array, extracting item...")
+                        napari_graph = napari_graph.item()  # Extract the actual object
+                        print(f"Extracted graph type: {type(napari_graph)}")
+                    
+                    # Now check what we have
+                    if isinstance(napari_graph, np.ndarray):
+                        if napari_graph.size == 0:
+                            print(f"Graph is empty array, converting to None")
+                            napari_graph = None
+                        else:
+                            # Should have been converted in tracking.py, but just in case
+                            print(f"WARNING: Graph is still an array with shape {napari_graph.shape}, converting to dict")
+                            graph_dict = {}
+                            if napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
+                                for child, parent in napari_graph:
+                                    child_id = int(child)
+                                    parent_id = int(parent)
+                                    if child_id not in graph_dict:
+                                        graph_dict[child_id] = []
+                                    graph_dict[child_id].append(parent_id)
+                            napari_graph = graph_dict
+                            print(f"Converted graph has {len(napari_graph)} nodes")
+                
+                # Now napari_graph should be either dict, None, or something else
+                if isinstance(napari_graph, dict):
+                    if len(napari_graph) == 0:
+                        print(f"Converting empty graph dict to None")
+                        napari_graph = None
+                    else:
+                        print(f"Graph is dict with {len(napari_graph)} nodes")
+            
+            print(f"Final graph type: {type(napari_graph)}")
+            print(f"Final graph value: {napari_graph if napari_graph is None or (isinstance(napari_graph, dict) and len(napari_graph) < 5) else f'dict with {len(napari_graph)} entries'}")
+            
+            self.viewer.add_tracks(
+                napari_data, 
+                properties=napari_properties,
+                graph=napari_graph,
+                name=tracks_layer_name,
+                tail_width=2,
+                tail_length=10,
+                head_length=0
+            )
+            print(f"\n✅ Created tracks layer: {tracks_layer_name}")
+            print(f"   Napari interpreted dimensions: {self.viewer.layers[tracks_layer_name].ndim}")
+            print(f"   Napari dims order: {self.viewer.dims.order}")
+            print(f"   Napari dims range: {self.viewer.dims.range}")
+            print(f"{'='*60}\n")
+            print(f"   Track data shape: {napari_data.shape}")
+            print(f"   Number of unique tracks: {len(np.unique(napari_data[:, 0]))}")
+        except Exception as e:
+            print(f"\n⚠️ Could not create tracks layer: {e}")
+            traceback.print_exc()
         
         # Update status
         self.status_label.value = f"✅ Tracking complete!"
@@ -435,6 +533,9 @@ class BtrackPresetWidget:
         print(f"Tracks > 1 frame: {track_info['tracks_gt_1']}")
         print(f"Tracks > 5 frames: {track_info['tracks_gt_5']}")
         print(f"Tracks > 10 frames: {track_info['tracks_gt_10']}")
+        print(f"Created layers:")
+        print(f"  - {labels_layer_name} (labels)")
+        print(f"  - {tracks_layer_name} (tracks)")
         print("="*60)
     
     def _on_tracking_error(self, error_msg: str):

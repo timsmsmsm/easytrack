@@ -27,21 +27,16 @@ DATA_PATH = 'example_data/z_tracking_not_cleaned.tif'
 #DATA_PATH = 'example_data/2d_time_example'
 
 # Pattern (only needed if DATA_PATH is a directory)
-PATTERN = 'CorrSkel_t*.tif'
+PATTERN = '*.tif'
 
 # Is your data already labeled, or does it need conversion?
 # True = binary/skeleton that needs labeling
 # False = already has unique labels per cell
-CONVERT_TO_LABELS = True
+CONVERT_TO_LABELS = False
 
 # Do you want to crop edges?
 CROP_EDGES = False
 CROP_PIXELS = 2  # pixels to crop from edges (to prevent artifacts from skeletons not reaching edges)
-
-# Are you tracking in Z (3D) or Time?
-# True = Track across Z-slices (for 3D stitching)
-# False = Track across time frames (normal time-lapse)
-TRACK_IN_Z = True
 
 # =========================================
 
@@ -65,14 +60,6 @@ if __name__ == '__main__':
     print(f"   Shape: {segmentation.shape}")
     print(f"   Data type: {segmentation.dtype}")
     
-    if TRACK_IN_Z:
-        print(f"\n📊 Mode: Z-tracking")
-        print(f"   Will track cells across {segmentation.shape[0]} Z-slices")
-        print(f"   (Z-slices are treated as time frames)")
-    else:
-        print(f"\n📊 Mode: Time-lapse tracking")
-        print(f"   Will track cells across {segmentation.shape[0]} time frames")
-    
     # Open napari
     print("\n" + "="*60)
     print("OPENING NAPARI")
@@ -81,7 +68,7 @@ if __name__ == '__main__':
     viewer = napari.Viewer()
     
     # Add your segmentation
-    layer_name = "Segmentation_Z" if TRACK_IN_Z else "Segmentation_T"
+    layer_name = "Segmentation"
     seg_layer = viewer.add_labels(segmentation, name=layer_name)
     
     # Add the tracking widget
