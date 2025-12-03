@@ -146,7 +146,6 @@
                 "P_init",
                 "P_term",
                 "P_link",
-                "P_branch",
                 "P_dead"
             ],
             "lambda_time": 13.05888572670761,
