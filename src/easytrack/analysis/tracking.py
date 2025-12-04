@@ -115,6 +115,7 @@ def run_tracking_process(
         
         # Track
         with btrack.BayesianTracker(verbose=True) as tracker:
+            # Configure tracker
             tracker.configure(conf)
             tracker.volume = volume  # Set spatial volume (not including time)
             tracker.max_search_radius = params['max_search_radius']
@@ -127,6 +128,7 @@ def run_tracking_process(
             tracker.optimize()
             
             logger.info(f"[CHILD] Updating segmentation with {len(tracker.tracks)} tracks...")
+
             # Get results
             tracked_seg = utils.update_segmentation(segmentation, tracker.tracks)
             
@@ -137,23 +139,19 @@ def run_tracking_process(
             # Convert graph from array to dict if necessary
             # Napari expects graph as a dict: {node_id: [parent_ids]}
             if isinstance(napari_graph, np.ndarray):
+                graph_dict = {}
                 if napari_graph.size == 0:
                     logger.info(f"[CHILD] Graph is empty array, converting to empty dict")
-                    napari_graph = {}
-                else:
+                elif napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
                     # btrack might return graph as array - need to convert
                     # Typically graph is (N, 2) array of [child, parent] pairs
                     logger.info(f"[CHILD] Converting graph array to dict for napari")
-                    graph_dict = {}
-                    if napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
-                        for child, parent in napari_graph:
-                            child_id = int(child)
-                            parent_id = int(parent)
-                            if child_id not in graph_dict:
-                                graph_dict[child_id] = []
-                            graph_dict[child_id].append(parent_id)
-                    napari_graph = graph_dict
-                    logger.info(f"[CHILD] Converted graph dict has {len(napari_graph)} nodes")
+                    graph_array_to_dict(graph_dict, napari_graph)
+                    logger.info(f"[CHILD] Converted graph dict has {len(graph_dict)} nodes")
+                else:
+                    logger.info(f"[CHILD] Unexpected graph array shape: {napari_graph.shape}, converting to empty dict")
+
+                napari_graph = graph_dict
             
             # Fix dimensionality mismatch between btrack output and input data
             # btrack always returns [track_id, t, z, y, x] (5 cols)
@@ -237,6 +235,15 @@ def run_tracking_process(
         logger.info(f"[CHILD] ERROR: {error_msg}")
         progress_queue.put(f"ERROR: {str(e)}")
         status_flag.value = -1
+
+
+def graph_array_to_dict(graph_dict: dict[Any, Any], napari_graph: ndarray[tuple[Any, ...], dtype[Any]]):
+    for child, parent in napari_graph:
+        child_id = int(child)
+        parent_id = int(parent)
+        if child_id not in graph_dict:
+            graph_dict[child_id] = []
+        graph_dict[child_id].append(parent_id)
 
 
 # ============= TRACKING MONITOR THREAD =============
