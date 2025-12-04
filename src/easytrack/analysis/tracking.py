@@ -8,20 +8,19 @@ Handles:
 - Exporting tracks to napari
 """
 
-import os
-import sys
 import json
+import os
+import shutil
 import tempfile
 import traceback
-from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
 from multiprocessing import Process, Queue, Value
-import shutil
+from pathlib import Path
+from typing import Dict, Any, Optional
 
-import numpy as np
-from qtpy.QtCore import QThread, Signal
 import btrack
+import numpy as np
 from btrack import utils, config
+from qtpy.QtCore import QThread, Signal
 
 from easytrack import logger
 from src.easytrack.presets import create_btrack_config_dict
