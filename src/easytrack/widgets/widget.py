@@ -20,8 +20,8 @@ import numpy as np
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
+from easytrack.analysis.tracking_manager import graph_array_to_dict
 from src.easytrack.presets import get_presets, load_config_from_json, create_btrack_config_dict
-from easytrack.analysis.tracking import TrackingManager, graph_array_to_dict
 from src.easytrack.utils import clean_segmentation, get_cleaning_stats
 
 
