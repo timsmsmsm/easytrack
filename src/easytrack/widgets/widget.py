@@ -12,7 +12,7 @@ Provides a GUI for:
 
 TODO: Possible refactors to improve code quality:
 
-1. The BtrackPresetWidget class is quite large (~500 lines) and handles
+1. The BtrackPresetWidget class is quite large and handles
    multiple concerns. Consider splitting into smaller, focused classes:
    - PresetSelectorWidget: Handle preset selection and JSON loading
    - ParameterTweakWidget: Handle parameter sliders and checkboxes
@@ -528,9 +528,10 @@ class BtrackPresetWidget:
             
             # Handle graph - napari expects a dict {node_id: [parent_ids]} or None
             # Graph might be saved as 0-d array containing a dict (numpy object array)
-            # TODO: This graph conversion logic is duplicated from tracking_manager.py.
-            #       Consider extracting to a shared utility function like
-            #       `normalize_napari_graph(graph)` that handles all edge cases.
+            # TODO: This graph conversion logic is duplicated - the graph_array_to_dict
+            #       function is already imported from tracking_manager.py, but the
+            #       broader normalization logic (handling 0-d arrays, empty arrays, etc.)
+            #       should be extracted to a shared `normalize_napari_graph(graph)` utility.
             if napari_graph is not None:
                 if isinstance(napari_graph, np.ndarray):
                     # Check if it's a 0-d array (scalar) containing an object

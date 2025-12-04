@@ -122,7 +122,7 @@ def run_tracking_process(
         progress_queue: Queue to send progress updates
         status_flag: Shared value to indicate completion (0=running, 1=success, -1=error)
 
-    TODO: This function is quite long (~160 lines) and handles multiple responsibilities:
+    TODO: This function is quite long and handles multiple responsibilities:
           - Loading and validating segmentation data
           - Extracting objects from segmentation
           - Configuring and running the btrack tracker
