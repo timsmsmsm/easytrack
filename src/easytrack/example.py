@@ -22,7 +22,7 @@ from utils import load_segmentation
 # Path to your data - can be either:
 #   - A single file: 'path/to/stack.tif'
 #   - A directory: 'path/to/folder/' (with pattern below)
-DATA_PATH = 'example_data/z_tracking_not_cleaned.tif'
+DATA_PATH = '../../example_data/z_tracking_not_cleaned.tif'
 #or
 #DATA_PATH = 'example_data/2d_time_example'
 
