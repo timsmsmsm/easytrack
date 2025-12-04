@@ -13,7 +13,7 @@ Usage:
 """
 
 import napari
-from widget import BtrackPresetWidget
+from src.easytrack.widgets.widget import BtrackPresetWidget
 from utils import load_segmentation
 
 
