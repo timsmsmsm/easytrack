@@ -1,4 +1,25 @@
 # ============= HIGH-LEVEL TRACKING INTERFACE =============
+#
+# TODO: Possible refactors to improve code quality:
+#
+# 1. Consider extracting `run_tracking_process` into a dedicated TrackingProcess class.
+#    This would encapsulate the tracking logic and make it easier to test and extend.
+#    The class could have methods like: load_segmentation(), extract_objects(),
+#    configure_tracker(), run_tracker(), and save_results().
+#
+# 2. The dimensionality handling (2D+T vs 3D+T) appears in multiple places.
+#    Consider creating a DimensionalityHandler class or utility functions to
+#    centralize this logic and reduce code duplication.
+#
+# 3. The napari data post-processing (fixing column order, handling graph format)
+#    could be extracted into a separate NapariExporter class or module.
+#
+# 4. Consider using a dataclass for TrackingParams to replace the Dict[str, Any]
+#    parameter passing. This would provide type safety and better documentation.
+#
+# 5. The file I/O operations (save_tracking_results, loading in TrackingMonitor)
+#    could be consolidated into a TrackingResultsIO class for consistency.
+#
 import json
 import os
 import tempfile
@@ -100,6 +121,15 @@ def run_tracking_process(
         params: Tracking parameters
         progress_queue: Queue to send progress updates
         status_flag: Shared value to indicate completion (0=running, 1=success, -1=error)
+
+    TODO: This function is quite long (~160 lines) and handles multiple responsibilities:
+          - Loading and validating segmentation data
+          - Extracting objects from segmentation
+          - Configuring and running the btrack tracker
+          - Post-processing napari data format
+          - Saving results to files
+          Consider breaking this into smaller, focused functions or a class with
+          clear method boundaries. This would improve testability and maintainability.
     """
     try:
         logger.info(f"[CHILD {os.getpid()}] Process started")
@@ -275,6 +305,13 @@ class TrackingManager:
     High-level interface for starting and managing tracking operations.
 
     Handles the complexity of multiprocessing, file I/O, and progress monitoring.
+
+    TODO: Consider adding the following improvements:
+          - Add tracking state management (idle, running, cancelled, completed, error)
+          - Implement a tracking history to allow reviewing past tracking results
+          - Add support for batch tracking of multiple segmentations
+          - Consider using asyncio instead of QThread for better integration with
+            modern Python async patterns
     """
 
     def __init__(self):

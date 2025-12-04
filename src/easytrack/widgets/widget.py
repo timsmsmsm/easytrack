@@ -9,6 +9,29 @@ Provides a GUI for:
 - Cleaning segmentation (remove fragments)
 - Visualizing tracks as napari tracks layer
 - Saving current parameters to JSON config file
+
+TODO: Possible refactors to improve code quality:
+
+1. The BtrackPresetWidget class is quite large (~500 lines) and handles
+   multiple concerns. Consider splitting into smaller, focused classes:
+   - PresetSelectorWidget: Handle preset selection and JSON loading
+   - ParameterTweakWidget: Handle parameter sliders and checkboxes
+   - TrackingControlWidget: Handle track/cancel buttons and status
+   - SegmentationCleanerWidget: Handle cleaning functionality
+
+2. The graph handling logic (converting numpy array to dict) appears both
+   here and in tracking_manager.py. Consider consolidating into a single
+   utility function or creating a GraphConverter class.
+
+3. The _on_tracking_finished method has a lot of debug print statements.
+   Consider using proper logging with configurable verbosity levels.
+
+4. Consider using Qt signals/slots more extensively instead of callback
+   functions for better decoupling between components.
+
+5. The parameter descriptions (PARAM_DESCRIPTIONS) could be moved to a
+   separate configuration file or resource for easier maintenance and
+   potential internationalization.
 """
 
 from pathlib import Path
@@ -505,6 +528,9 @@ class BtrackPresetWidget:
             
             # Handle graph - napari expects a dict {node_id: [parent_ids]} or None
             # Graph might be saved as 0-d array containing a dict (numpy object array)
+            # TODO: This graph conversion logic is duplicated from tracking_manager.py.
+            #       Consider extracting to a shared utility function like
+            #       `normalize_napari_graph(graph)` that handles all edge cases.
             if napari_graph is not None:
                 if isinstance(napari_graph, np.ndarray):
                     # Check if it's a 0-d array (scalar) containing an object
