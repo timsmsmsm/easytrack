@@ -7,6 +7,7 @@ Handles:
 - File-based communication to avoid Queue size limits
 - Exporting tracks to napari
 """
+from __future__ import annotations
 
 import json
 import os
@@ -198,32 +199,8 @@ def run_tracking_process(
         progress_queue.put("Saving results...")
         
         # Save results to files
-        np.save(output_file, tracked_seg)
-        
-        # Save napari tracks data
-        napari_output_file = output_file.replace('.npy', '_napari.npz')
-        
-        # Save properties dict more carefully
-        # Properties is a dict where each key maps to an array
-        properties_dict = {}
-        for key, value in napari_properties.items():
-            properties_dict[f'prop_{key}'] = value
-        
-        # Save with allow_pickle for graph (could be dict)
-        np.savez(
-            napari_output_file,
-            data=napari_data,
-            properties_keys=list(napari_properties.keys()),
-            graph=napari_graph,  # This could be dict or array
-            **properties_dict
-        )
-        
-        # Save track info
-        info_file = output_file.replace('.npy', '_info.json')
-        with open(info_file, 'w') as f:
-            json.dump(track_info, f)
-        
-        logger.info(f"[CHILD] Results saved successfully")
+        save_tracking_results(napari_data, napari_graph, napari_properties, output_file, track_info, tracked_seg)
+
         progress_queue.put("Tracking complete!")
         
         # Signal success
@@ -235,6 +212,53 @@ def run_tracking_process(
         logger.info(f"[CHILD] ERROR: {error_msg}")
         progress_queue.put(f"ERROR: {str(e)}")
         status_flag.value = -1
+
+
+def save_tracking_results(napari_data: np.ndarray[tuple[Any, ...], np.dtype[np._ScalarT]] | np.ndarray[tuple[Any, ...], np.dtype[Any]],
+                          napari_graph: dict | dict[Any, Any],
+                          napari_properties: dict,
+                          output_file: str,
+                          track_info: dict[str, int],
+                          tracked_seg: np.ndarray[tuple[Any, ...], np.dtype[Any]]):
+    """
+    Save tracking results to files for napari consumption.
+    Args:
+        napari_data:
+        napari_graph:
+        napari_properties:
+        output_file:
+        track_info:
+        tracked_seg:
+
+    Returns:
+
+    """
+    np.save(output_file, tracked_seg)
+
+    # Save napari tracks data
+    napari_output_file = output_file.replace('.npy', '_napari.npz')
+
+    # Save properties dict more carefully
+    # Properties is a dict where each key maps to an array
+    properties_dict = {}
+    for key, value in napari_properties.items():
+        properties_dict[f'prop_{key}'] = value
+
+    # Save with allow_pickle for graph (could be dict)
+    np.savez(
+        napari_output_file,
+        data=napari_data,
+        properties_keys=list(napari_properties.keys()),
+        graph=napari_graph,  # This could be dict or array
+        **properties_dict
+    )
+
+    # Save track info
+    info_file = output_file.replace('.npy', '_info.json')
+    with open(info_file, 'w') as f:
+        json.dump(track_info, f)
+
+    logger.info(f"[CHILD] Results saved successfully")
 
 
 def graph_array_to_dict(graph_dict: dict[Any, Any],
