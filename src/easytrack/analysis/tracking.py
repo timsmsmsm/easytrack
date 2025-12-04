@@ -180,7 +180,7 @@ def run_tracking_process(
                 logger.info(f"[CHILD] Input is 3D+T (shape: {segmentation.shape})")
                 logger.info(f"[CHILD] Keeping all 5 columns [track_id, t, z, y, x]")
                 # napari_data stays as is
-            
+
             else:
                 logger.info(f"[CHILD] Unexpected data format: napari shape={napari_data.shape}, seg shape={segmentation.shape}")
             
@@ -237,7 +237,19 @@ def run_tracking_process(
         status_flag.value = -1
 
 
-def graph_array_to_dict(graph_dict: dict[Any, Any], napari_graph: ndarray[tuple[Any, ...], dtype[Any]]):
+def graph_array_to_dict(graph_dict: dict[Any, Any],
+                        napari_graph: np.ndarray[tuple[Any, ...],
+                        np.dtype[Any]]):
+    """
+    Convert napari graph from array format to dict format.
+    Args:
+        graph_dict: Dictionary to populate
+        napari_graph: Array of shape (N, 2) with [child, parent] pairs
+
+    Returns:
+    Populate graph_dict with child-parent relationships.
+
+    """
     for child, parent in napari_graph:
         child_id = int(child)
         parent_id = int(parent)
