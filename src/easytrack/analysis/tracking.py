@@ -23,6 +23,7 @@ from qtpy.QtCore import QThread, Signal
 import btrack
 from btrack import utils, config
 
+from easytrack import logger
 from src.easytrack.presets import create_btrack_config_dict
 
 
@@ -39,19 +40,19 @@ def run_tracking_process(
     Run tracking in a separate process using file-based I/O.
     
     Args:
-        input_file: Path to input segmentation .npy file
-        output_file: Path to save output tracked segmentation
+        input_file: Path to input temporary segmentation .npy file
+        output_file: Path to save temporary output tracked segmentation
         params: Tracking parameters
         progress_queue: Queue to send progress updates
         status_flag: Shared value to indicate completion (0=running, 1=success, -1=error)
     """
     try:
-        print(f"[CHILD {os.getpid()}] Process started")
+        logger.info(f"[CHILD {os.getpid()}] Process started")
         progress_queue.put("Loading segmentation from file...")
         
         # Load segmentation from file
         segmentation = np.load(input_file)
-        print(f"[CHILD] Loaded segmentation: shape={segmentation.shape}, dtype={segmentation.dtype}")
+        logger.info(f"[CHILD] Loaded segmentation: shape={segmentation.shape}, dtype={segmentation.dtype}")
         
         # Ensure correct data type
         segmentation = np.ascontiguousarray(
@@ -62,16 +63,16 @@ def run_tracking_process(
         if segmentation.ndim == 3:
             # 2D+T: (T, Y, X)
             T, Y, X = segmentation.shape
-            print(f"[CHILD] Detected 2D+T data: T={T}, Y={Y}, X={X}")
+            logger.info(f"[CHILD] Detected 2D+T data: T={T}, Y={Y}, X={X}")
         elif segmentation.ndim == 4:
             # 3D+T: (T, Z, Y, X)
             T, Z, Y, X = segmentation.shape
-            print(f"[CHILD] Detected 3D+T data: T={T}, Z={Z}, Y={Y}, X={X}")
+            logger.info(f"[CHILD] Detected 3D+T data: T={T}, Z={Z}, Y={Y}, X={X}")
         else:
             raise ValueError(f"Unsupported segmentation shape: {segmentation.shape}")
         
         progress_queue.put(f"Extracting objects from {T} frames...")
-        print(f"[CHILD] Extracting objects...")
+        logger.info(f"[CHILD] Extracting objects...")
         
         # Extract objects
         objects = utils.segmentation_to_objects(
@@ -80,7 +81,7 @@ def run_tracking_process(
             num_workers=1
         )
         
-        print(f"[CHILD] Found {len(objects)} objects")
+        logger.info(f"[CHILD] Found {len(objects)} objects")
         progress_queue.put(f"Found {len(objects)} objects. Starting tracking...")
         
         # Create temporary config file with parameters
@@ -89,7 +90,7 @@ def run_tracking_process(
             json.dump(config_data, f, indent=2)
             config_path = f.name
         
-        print(f"[CHILD] Loading config from {config_path}")
+        logger.info(f"[CHILD] Loading config from {config_path}")
         # Load config
         conf = config.load_config(config_path)
         
@@ -104,14 +105,14 @@ def run_tracking_process(
         if segmentation.ndim == 3:
             # 2D+T: spatial volume is (X, Y) in btrack's reversed order
             volume = ((0, X), (0, Y))
-            print(f"[CHILD] Spatial volume (2D): X=[0,{X}], Y=[0,{Y}]")
+            logger.info(f"[CHILD] Spatial volume (2D): X=[0,{X}], Y=[0,{Y}]")
         else:
             # 3D+T: spatial volume is (X, Y, Z) in btrack's reversed order
             volume = ((0, X), (0, Y), (0, Z))
-            print(f"[CHILD] Spatial volume (3D): X=[0,{X}], Y=[0,{Y}], Z=[0,{Z}]")
+            logger.info(f"[CHILD] Spatial volume (3D): X=[0,{X}], Y=[0,{Y}], Z=[0,{Z}]")
         
         progress_queue.put("Running btrack tracking and optimization...")
-        print(f"[CHILD] Starting btrack...")
+        logger.info(f"[CHILD] Starting btrack...")
         
         # Track
         with btrack.BayesianTracker(verbose=True) as tracker:
@@ -120,30 +121,30 @@ def run_tracking_process(
             tracker.max_search_radius = params['max_search_radius']
             tracker.append(objects)
             
-            print(f"[CHILD] Running tracker.track()...")
+            logger.info(f"[CHILD] Running tracker.track()...")
             tracker.track(step_size=100)
             
-            print(f"[CHILD] Running tracker.optimize()...")
+            logger.info(f"[CHILD] Running tracker.optimize()...")
             tracker.optimize()
             
-            print(f"[CHILD] Updating segmentation with {len(tracker.tracks)} tracks...")
+            logger.info(f"[CHILD] Updating segmentation with {len(tracker.tracks)} tracks...")
             # Get results
             tracked_seg = utils.update_segmentation(segmentation, tracker.tracks)
             
             # Get tracks in napari format
-            print(f"[CHILD] Exporting tracks to napari...")
+            logger.info(f"[CHILD] Exporting tracks to napari...")
             napari_data, napari_properties, napari_graph = tracker.to_napari()
             
             # Convert graph from array to dict if necessary
             # Napari expects graph as a dict: {node_id: [parent_ids]}
             if isinstance(napari_graph, np.ndarray):
                 if napari_graph.size == 0:
-                    print(f"[CHILD] Graph is empty array, converting to empty dict")
+                    logger.info(f"[CHILD] Graph is empty array, converting to empty dict")
                     napari_graph = {}
                 else:
                     # btrack might return graph as array - need to convert
                     # Typically graph is (N, 2) array of [child, parent] pairs
-                    print(f"[CHILD] Converting graph array to dict for napari")
+                    logger.info(f"[CHILD] Converting graph array to dict for napari")
                     graph_dict = {}
                     if napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
                         for child, parent in napari_graph:
@@ -153,7 +154,7 @@ def run_tracking_process(
                                 graph_dict[child_id] = []
                             graph_dict[child_id].append(parent_id)
                     napari_graph = graph_dict
-                    print(f"[CHILD] Converted graph dict has {len(napari_graph)} nodes")
+                    logger.info(f"[CHILD] Converted graph dict has {len(napari_graph)} nodes")
             
             # Fix dimensionality mismatch between btrack output and input data
             # btrack always returns [track_id, t, z, y, x] (5 cols)
@@ -164,9 +165,9 @@ def run_tracking_process(
                 # Input is 2D+T (T, Y, X), so remove the Z column
                 z_column = napari_data[:, 2]
                 z_range = z_column.max() - z_column.min()
-                print(f"[CHILD] Input is 2D+T (shape: {segmentation.shape})")
-                print(f"[CHILD] Z column range: {z_range} (should be ~0 for 2D tracking)")
-                print(f"[CHILD] Removing Z column to match 2D+T format...")
+                logger.info(f"[CHILD] Input is 2D+T (shape: {segmentation.shape})")
+                logger.info(f"[CHILD] Z column range: {z_range} (should be ~0 for 2D tracking)")
+                logger.info(f"[CHILD] Removing Z column to match 2D+T format...")
                 
                 # Remove Z column: [track_id, t, z, y, x] -> [track_id, t, y, x]
                 napari_data = np.column_stack([
@@ -175,16 +176,16 @@ def run_tracking_process(
                     napari_data[:, 3],  # y (skip z at index 2)
                     napari_data[:, 4]   # x
                 ])
-                print(f"[CHILD] After removing Z: shape={napari_data.shape}")
+                logger.info(f"[CHILD] After removing Z: shape={napari_data.shape}")
                 
             elif napari_data.shape[1] == 5 and segmentation.ndim == 4:
                 # Input is 3D+T (T, Z, Y, X), keep all columns
-                print(f"[CHILD] Input is 3D+T (shape: {segmentation.shape})")
-                print(f"[CHILD] Keeping all 5 columns [track_id, t, z, y, x]")
+                logger.info(f"[CHILD] Input is 3D+T (shape: {segmentation.shape})")
+                logger.info(f"[CHILD] Keeping all 5 columns [track_id, t, z, y, x]")
                 # napari_data stays as is
             
             else:
-                print(f"[CHILD] Unexpected data format: napari shape={napari_data.shape}, seg shape={segmentation.shape}")
+                logger.info(f"[CHILD] Unexpected data format: napari shape={napari_data.shape}, seg shape={segmentation.shape}")
             
             track_info = {
                 'total_tracks': len(tracker.tracks),
@@ -196,7 +197,7 @@ def run_tracking_process(
         # Clean up temp config file
         Path(config_path).unlink()
         
-        print(f"[CHILD] Saving results to {output_file}...")
+        logger.info(f"[CHILD] Saving results to {output_file}...")
         progress_queue.put("Saving results...")
         
         # Save results to files
@@ -225,16 +226,16 @@ def run_tracking_process(
         with open(info_file, 'w') as f:
             json.dump(track_info, f)
         
-        print(f"[CHILD] Results saved successfully")
+        logger.info(f"[CHILD] Results saved successfully")
         progress_queue.put("Tracking complete!")
         
         # Signal success
         status_flag.value = 1
-        print(f"[CHILD] Process completed successfully")
+        logger.info(f"[CHILD] Process completed successfully")
         
     except Exception as e:
         error_msg = f"Error during tracking: {str(e)}\n{traceback.format_exc()}"
-        print(f"[CHILD] ERROR: {error_msg}")
+        logger.info(f"[CHILD] ERROR: {error_msg}")
         progress_queue.put(f"ERROR: {str(e)}")
         status_flag.value = -1
 
@@ -271,43 +272,43 @@ class TrackingMonitor(QThread):
         
     def cancel(self):
         """Cancel the tracking process."""
-        print(f"[MONITOR] Cancel requested")
+        logger.info(f"[MONITOR] Cancel requested")
         self._is_cancelled = True
         if self.process.is_alive():
-            print(f"[MONITOR] Terminating process...")
+            logger.info(f"[MONITOR] Terminating process...")
             self.process.terminate()
             self.process.join(timeout=2)
             if self.process.is_alive():
-                print(f"[MONITOR] Killing process...")
+                logger.info(f"[MONITOR] Killing process...")
                 self.process.kill()
                 self.process.join()
-            print(f"[MONITOR] Process terminated")
+            logger.info(f"[MONITOR] Process terminated")
         
     def run(self):
         """Monitor the process and relay messages."""
         try:
-            print(f"[MONITOR] Started monitoring process PID: {self.process.pid}")
+            logger.info(f"[MONITOR] Started monitoring process PID: {self.process.pid}")
             
             while True:
                 # Check for progress messages
                 while not self.progress_queue.empty():
                     msg = self.progress_queue.get_nowait()
-                    print(f"[MONITOR] Progress: {msg}")
+                    logger.info(f"[MONITOR] Progress: {msg}")
                     self.progress.emit(msg)
                 
                 # Check if process is done
                 if not self.process.is_alive():
-                    print(f"[MONITOR] Process ended with exit code: {self.process.exitcode}")
+                    logger.info(f"[MONITOR] Process ended with exit code: {self.process.exitcode}")
                     
                     # Get final progress messages
                     while not self.progress_queue.empty():
                         msg = self.progress_queue.get_nowait()
-                        print(f"[MONITOR] Final progress: {msg}")
+                        logger.info(f"[MONITOR] Final progress: {msg}")
                         self.progress.emit(msg)
                     
                     # Check status
                     if self.status_flag.value == 1:
-                        print(f"[MONITOR] Success! Loading results from {self.output_file}")
+                        logger.info(f"[MONITOR] Success! Loading results from {self.output_file}")
                         # Load results from file
                         tracked_seg = np.load(self.output_file)
                         info_file = self.output_file.replace('.npy', '_info.json')
@@ -332,21 +333,21 @@ class TrackingMonitor(QThread):
                         
                         napari_graph = napari_npz['graph']
                         
-                        print(f"[MONITOR] Loaded results: {track_info}")
-                        print(f"[MONITOR] Napari tracks shape: {napari_data.shape}")
-                        print(f"[MONITOR] Napari properties keys: {list(napari_properties.keys())}")
+                        logger.info(f"[MONITOR] Loaded results: {track_info}")
+                        logger.info(f"[MONITOR] Napari tracks shape: {napari_data.shape}")
+                        logger.info(f"[MONITOR] Napari properties keys: {list(napari_properties.keys())}")
                         self.finished.emit(tracked_seg, track_info, napari_data, napari_properties, napari_graph)
                     elif self.status_flag.value == -1:
-                        print(f"[MONITOR] Process reported error")
+                        logger.info(f"[MONITOR] Process reported error")
                         self.error.emit("Tracking process reported an error. Check console for details.")
                     elif not self._is_cancelled:
-                        print(f"[MONITOR] Process ended without setting status flag")
+                        logger.info(f"[MONITOR] Process ended without setting status flag")
                         self.error.emit("Process ended unexpectedly without result")
                     break
                 
                 # Check for cancellation
                 if self._is_cancelled:
-                    print(f"[MONITOR] Cancelled by user")
+                    logger.info(f"[MONITOR] Cancelled by user")
                     break
                 
                 # Small sleep to avoid busy waiting
@@ -355,11 +356,11 @@ class TrackingMonitor(QThread):
         except Exception as e:
             if not self._is_cancelled:
                 error_msg = f"Monitor error: {str(e)}\n{traceback.format_exc()}"
-                print(f"[MONITOR] ERROR: {error_msg}")
+                logger.info(f"[MONITOR] ERROR: {error_msg}")
                 self.error.emit(error_msg)
         finally:
             # Clean up temp files
-            print(f"[MONITOR] Cleaning up temp directory: {self.temp_dir}")
+            logger.info(f"[MONITOR] Cleaning up temp directory: {self.temp_dir}")
             try:
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
             except:
@@ -376,6 +377,9 @@ class TrackingManager:
     """
     
     def __init__(self):
+        """
+        Initialize the TrackingManager.
+        """
         self.current_process: Optional[Process] = None
         self.current_monitor: Optional[TrackingMonitor] = None
         
@@ -405,7 +409,7 @@ class TrackingManager:
         input_file = Path(temp_dir) / 'input_seg.npy'
         output_file = Path(temp_dir) / 'output_seg.npy'
         
-        print(f"[MAIN] Saving segmentation to {input_file}")
+        logger.info(f"[MAIN] Saving segmentation to {input_file}")
         # Save input segmentation
         np.save(input_file, segmentation)
         
@@ -415,7 +419,7 @@ class TrackingManager:
         # Create queue for progress
         progress_queue = Queue()
         
-        print(f"[MAIN] Starting tracking process...")
+        logger.info(f"[MAIN] Starting tracking process...")
         # Create and start tracking process
         self.current_process = Process(
             target=run_tracking_process,
