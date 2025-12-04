@@ -1,3 +1,35 @@
 [build-system]
 requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
+
+[project]
+authors = [
+    {email = "tim.huygelen.20@ucl.ac.uk", name = "Tim Huygelen"},
+    {email = "p.munuera@ucl.ac.uk", name = "Pablo Vicente Munuera"},
+    {email = "y.mao@ucl.ac.uk", name = "Yanlan Mao"},
+]
+classifiers = [
+    "Framework :: napari",
+    "Intended Audience :: Science/Research",
+    #"License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    #"Programming Language :: Python :: 3.10",
+    "Programming Language :: Python",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+]
+description = ""
+keywords = [
+    "biology",
+    "cell",
+    "tracking",
+    "tissue",
+]
+name = "easytrack"
+readme = "README.md"
+requires-python = ">=3.9"
