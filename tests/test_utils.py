@@ -6,10 +6,6 @@ from pathlib import Path
 import tempfile
 import os
 
-# Add parent directory to path for imports
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from utils import (
     _is_already_labeled,
     _convert_to_labels,

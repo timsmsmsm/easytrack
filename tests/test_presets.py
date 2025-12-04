@@ -5,10 +5,6 @@ import pytest
 from pathlib import Path
 import tempfile
 
-# Add parent directory to path for imports
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from presets import (
     load_config_from_json,
     create_btrack_config_dict,
