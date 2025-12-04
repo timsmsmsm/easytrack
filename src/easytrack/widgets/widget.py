@@ -12,19 +12,17 @@ Provides a GUI for:
 """
 
 from pathlib import Path
-from typing import Optional
 import traceback
 import json
 
 import napari
 import numpy as np
-from magicgui import magicgui
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from presets import get_presets, load_config_from_json, create_btrack_config_dict
-from tracking import TrackingManager
-from utils import clean_segmentation, get_cleaning_stats
+from easytrack.analysis.tracking_manager import graph_array_to_dict
+from src.easytrack.presets import get_presets, load_config_from_json, create_btrack_config_dict
+from src.easytrack.utils import clean_segmentation, get_cleaning_stats
 
 
 # Parameter descriptions for tooltips
@@ -525,12 +523,7 @@ class BtrackPresetWidget:
                             print(f"WARNING: Graph is still an array with shape {napari_graph.shape}, converting to dict")
                             graph_dict = {}
                             if napari_graph.ndim == 2 and napari_graph.shape[1] == 2:
-                                for child, parent in napari_graph:
-                                    child_id = int(child)
-                                    parent_id = int(parent)
-                                    if child_id not in graph_dict:
-                                        graph_dict[child_id] = []
-                                    graph_dict[child_id].append(parent_id)
+                                graph_array_to_dict(graph_dict, napari_graph)
                             napari_graph = graph_dict
                             print(f"Converted graph has {len(napari_graph)} nodes")
                 
