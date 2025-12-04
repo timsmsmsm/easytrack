@@ -13,7 +13,7 @@ from btrack import utils, config
 from qtpy.QtCore import QThread, Signal
 
 from easytrack import logger
-from easytrack.analysis.tracking import TrackingMonitor
+from easytrack.analysis.tracking_monitor import TrackingMonitor
 from easytrack.presets import create_btrack_config_dict
 
 
