@@ -6,6 +6,26 @@ Handles:
 - Monitoring progress and managing cancellation
 - File-based communication to avoid Queue size limits
 - Exporting tracks to napari
+
+TODO: Possible refactors to improve code quality:
+
+1. The run() method in TrackingMonitor handles multiple responsibilities:
+   - Progress message polling
+   - Process lifecycle monitoring
+   - Result file loading
+   - Cleanup operations
+   Consider using a state machine pattern to make the monitoring logic clearer.
+
+2. The result loading logic (loading tracked_seg, track_info, napari data)
+   is tightly coupled with the file format saved by TrackingManager.
+   Consider creating a shared TrackingResults dataclass that both classes use.
+
+3. Error handling could be improved by defining custom exception types
+   (e.g., TrackingCancelledError, TrackingProcessError) for better error
+   categorization and handling.
+
+4. The cleanup in the finally block could be extracted to a dedicated
+   cleanup() method for better testability and reuse.
 """
 from __future__ import annotations
 
@@ -28,6 +48,13 @@ class TrackingMonitor(QThread):
 
     Runs in a Qt thread to avoid blocking the UI while monitoring
     a separate process that's doing the actual tracking work.
+
+    TODO: Consider the following improvements:
+          - Add timeout handling to prevent indefinite waiting
+          - Implement heartbeat mechanism to detect stuck processes
+          - Add support for pausing/resuming tracking (if btrack supports it)
+          - Consider using QProcess instead of Python multiprocessing for
+            better Qt integration and cross-platform compatibility
     """
 
     finished = Signal(object, object, object, object, object)  # tracked_seg, track_info, napari_data, napari_properties, napari_graph
