@@ -8,7 +8,7 @@ import sys
 import multiprocessing as mp
 import napari
 
-from widget import BtrackPresetWidget
+from src.easytrack.widgets.widget import BtrackPresetWidget
 
 
 def main():

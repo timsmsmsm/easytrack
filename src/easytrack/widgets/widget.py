@@ -12,19 +12,17 @@ Provides a GUI for:
 """
 
 from pathlib import Path
-from typing import Optional
 import traceback
 import json
 
 import napari
 import numpy as np
-from magicgui import magicgui
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from presets import get_presets, load_config_from_json, create_btrack_config_dict
-from tracking import TrackingManager
-from utils import clean_segmentation, get_cleaning_stats
+from src.easytrack.presets import get_presets, load_config_from_json, create_btrack_config_dict
+from easytrack.analysis.tracking import TrackingManager
+from src.easytrack.utils import clean_segmentation, get_cleaning_stats
 
 
 # Parameter descriptions for tooltips
