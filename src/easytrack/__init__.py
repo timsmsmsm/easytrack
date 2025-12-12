@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from ._version import __version__
-
 # get the logger instance
 logger = logging.getLogger(__name__)
 

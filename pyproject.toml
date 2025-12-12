@@ -77,22 +77,22 @@ testing = [
 py-modules = ["presets", "utils", "widget", "tracking", "launch", "example"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "--cov=. --cov-report=term-missing --cov-report=html --cov-fail-under=60"
-
-[tool.coverage.run]
-source = ["."]
-omit = [
-    "tests/*",
-    "example.py",
-    "launch.py",
-    "setup.py",
-    "*/__pycache__/*",
+addopts = "--color=yes -v"
+testpaths = [
+    "tests",
 ]
 
-[tool.coverage.report]
-exclude_lines = [
+[tool.coverage]
+report = {skip_covered = true, sort = "cover", exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
+]}
+run = {branch = true, parallel = true, source = [
+    "easytrack",
+]}
+paths.source = [
+    "src",
+    ".tox*/*/lib/python*/site-packages",
+    ".tox*\\*\\Lib\\site-packages",
 ]
