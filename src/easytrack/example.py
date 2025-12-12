@@ -22,9 +22,9 @@ from utils import load_segmentation
 # Path to your data - can be either:
 #   - A single file: 'path/to/stack.tif'
 #   - A directory: 'path/to/folder/' (with pattern below)
-DATA_PATH = '../../example_data/z_tracking_not_cleaned.tif'
+#DATA_PATH = 'example_data/z_tracking_not_cleaned.tif'
 #or
-#DATA_PATH = 'example_data/2d_time_example'
+DATA_PATH = 'example_data/2d_time_example'
 
 # Pattern (only needed if DATA_PATH is a directory)
 PATTERN = '*.tif'
@@ -32,11 +32,11 @@ PATTERN = '*.tif'
 # Is your data already labeled, or does it need conversion?
 # True = binary/skeleton that needs labeling
 # False = already has unique labels per cell
-CONVERT_TO_LABELS = False
+CONVERT_TO_LABELS = True
 
 # Do you want to crop edges?
-CROP_EDGES = False
-CROP_PIXELS = 2  # pixels to crop from edges (to prevent artifacts from skeletons not reaching edges)
+CROP_EDGES = True
+CROP_PIXELS = 4  # pixels to crop from edges (to prevent artifacts from skeletons not reaching edges)
 
 # =========================================
 

@@ -303,175 +303,185 @@ def _is_already_labeled(data):
 
 def _convert_to_labels(frame):
     """
-    Convert a binary/skeleton frame to labeled connected components.
+    Convert a skeleton/boundary frame to labeled cell regions.
+    Uses morphological dilation to assign boundaries to nearest cells.
     """
     if frame.dtype == bool:
-        binary = frame
+        boundaries = frame
     else:
-        # Threshold to binary
-        max_val = frame.max()
-        mean_val = frame.mean()
-        # If mean is low (dark background), threshold high values
-        # If mean is high (bright background), threshold low values
-        binary = frame > (max_val / 2) if mean_val < (max_val / 2) else frame < (max_val / 2)
+        boundaries = frame > 0
     
-    # Label connected components
-    labeled, n_labels = ndimage.label(binary)
-    return labeled
+    # Invert and label the regions
+    regions = ~boundaries
+    labeled, n_labels = ndimage.label(regions)
+    
+    # Dilate each label into the boundary regions
+    # This assigns boundary pixels to the nearest cell
+    from scipy.ndimage import distance_transform_edt
+    
+    # For each boundary pixel, find the nearest labeled region
+    distances, indices = distance_transform_edt(labeled == 0, return_indices=True)
+    
+    # Assign boundary pixels to their nearest cell
+    labeled_filled = labeled.copy()
+    boundary_mask = boundaries
+    labeled_filled[boundary_mask] = labeled[tuple(indices[:, boundary_mask])]
+    
+    return labeled_filled
 
 
 # ============= SEGMENTATION PROCESSING =============
 
-def clean_segmentation(segmentation, verbose=True):
+def clean_segmentation(segmentation, verbose=True, min_size=5):
     """
-    Clean segmentation by keeping only the largest connected component per label.
-    
-    For each label in each frame, finds all disconnected fragments and:
-    1. Keeps the largest fragment
-    2. Reassigns smaller fragments to the neighboring label they touch most
-    3. Removes isolated fragments (no neighbors) to background
-    
-    Uses 4-connectivity (no diagonals) for both component detection and neighbor finding.
-    
-    Works with both 2D+T (T, Y, X) and 3D+T (T, Z, Y, X) data.
-    
+    Clean segmentation by:
+    1. Keeping only the largest connected component per label
+    2. Reassigning smaller fragments and small labels to neighbors
     Args:
         segmentation: 3D array (T, Y, X) or 4D array (T, Z, Y, X) with integer labels
         verbose: If True, print progress information
-        
+        min_size: Minimum number of pixels/voxels for a label (default: 5)
     Returns:
         Cleaned segmentation with same shape and dtype
-        
-    Example:
-        >>> cleaned = clean_segmentation(my_segmentation)
-        >>> # Result: each label is a single connected component
     """
     cleaned = segmentation.copy()
-    total_reassigned = 0
+    is_3d = (segmentation.ndim == 4)
+    n_timepoints = segmentation.shape[0]
     
     if verbose:
         print("\n" + "="*60)
         print("CLEANING SEGMENTATION")
+        print(f"Segmentation is 3D: {is_3d}")
         print("="*60)
     
-    is_3d = segmentation.ndim == 4
-    n_timepoints = segmentation.shape[0]
+    total_reassigned = 0
+    total_removed = 0
     
     for t in range(n_timepoints):
-        if is_3d:
-            # For 3D+T, process the entire 3D volume at each timepoint
-            volume = cleaned[t]
-            unique_labels = np.unique(volume)
-            unique_labels = unique_labels[unique_labels > 0]
-            
-            frame_reassigned = 0
-            
-            for label_id in unique_labels:
-                mask = (volume == label_id)
-                
-                # 3D connectivity structure (6-connectivity: face neighbors only)
-                structure = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-                                     [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
-                                     [[0, 0, 0], [0, 1, 0], [0, 0, 0]]], dtype=bool)
-                
-                labeled_components, num_components = ndimage.label(mask, structure=structure)
-                
-                if num_components > 1:
-                    component_sizes = ndimage.sum(mask, labeled_components, range(1, num_components + 1))
-                    largest_component_idx = np.argmax(component_sizes) + 1
-                    
-                    for component_idx in range(1, num_components + 1):
-                        if component_idx == largest_component_idx:
-                            continue
-                        
-                        component_mask = (labeled_components == component_idx)
-                        neighbor_counts = {}
-                        component_coords = np.argwhere(component_mask)
-                        
-                        # Check 6-connected neighbors in 3D
-                        for z, y, x in component_coords:
-                            for dz, dy, dx in [(0, -1, 0), (0, 1, 0), (0, 0, -1), 
-                                              (0, 0, 1), (-1, 0, 0), (1, 0, 0)]:
-                                nz, ny, nx = z + dz, y + dy, x + dx
-                                
-                                if (0 <= nz < volume.shape[0] and 
-                                    0 <= ny < volume.shape[1] and 
-                                    0 <= nx < volume.shape[2]):
-                                    neighbor_label = volume[nz, ny, nx]
-                                    
-                                    if neighbor_label > 0 and neighbor_label != label_id:
-                                        neighbor_counts[neighbor_label] = neighbor_counts.get(neighbor_label, 0) + 1
-                        
-                        if neighbor_counts:
-                            most_common_neighbor = max(neighbor_counts, key=neighbor_counts.get)
-                            cleaned[t][component_mask] = most_common_neighbor
-                            frame_reassigned += np.sum(component_mask)
-                        else:
-                            cleaned[t][component_mask] = 0
-                            frame_reassigned += np.sum(component_mask)
-            
-            if verbose and frame_reassigned > 0:
-                print(f"  Timepoint {t}: reassigned {frame_reassigned} voxels")
-                total_reassigned += frame_reassigned
-                
-        else:
-            # Original 2D+T code
-            frame = cleaned[t]
-            unique_labels = np.unique(frame)
-            unique_labels = unique_labels[unique_labels > 0]
-            
-            frame_reassigned = 0
-            
-            for label_id in unique_labels:
-                mask = (frame == label_id)
-                
-                # 4-connectivity structure
-                structure = np.array([[0, 1, 0],
-                                     [1, 1, 1],
-                                     [0, 1, 0]], dtype=bool)
-                labeled_components, num_components = ndimage.label(mask, structure=structure)
-                
-                if num_components > 1:
-                    component_sizes = ndimage.sum(mask, labeled_components, range(1, num_components + 1))
-                    largest_component_idx = np.argmax(component_sizes) + 1
-                    
-                    for component_idx in range(1, num_components + 1):
-                        if component_idx == largest_component_idx:
-                            continue
-                        
-                        component_mask = (labeled_components == component_idx)
-                        neighbor_counts = {}
-                        component_coords = np.argwhere(component_mask)
-                        
-                        for y, x in component_coords:
-                            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                                ny, nx = y + dy, x + dx
-                                
-                                if 0 <= ny < frame.shape[0] and 0 <= nx < frame.shape[1]:
-                                    neighbor_label = frame[ny, nx]
-                                    
-                                    if neighbor_label > 0 and neighbor_label != label_id:
-                                        neighbor_counts[neighbor_label] = neighbor_counts.get(neighbor_label, 0) + 1
-                        
-                        if neighbor_counts:
-                            most_common_neighbor = max(neighbor_counts, key=neighbor_counts.get)
-                            cleaned[t][component_mask] = most_common_neighbor
-                            frame_reassigned += np.sum(component_mask)
-                        else:
-                            cleaned[t][component_mask] = 0
-                            frame_reassigned += np.sum(component_mask)
-            
-            if verbose and frame_reassigned > 0:
-                print(f"  Frame {t}: reassigned {frame_reassigned} pixels")
-                total_reassigned += frame_reassigned
+        # DEBUG: Only for frame 13
+        if t == 13:
+            structure = ndimage.generate_binary_structure(cleaned[t].ndim, connectivity=1)
+            label_31_mask = (cleaned[t] == 31)
+            if np.any(label_31_mask):
+                labeled_31, num_31 = ndimage.label(label_31_mask, structure=structure)
+                sizes_31 = ndimage.sum(label_31_mask, labeled_31, range(1, num_31 + 1)) if num_31 > 0 else []
+                print(f"\nBEFORE Frame 13: Label 31 has {num_31} components, sizes: {sizes_31}")
+        
+        stats = _clean_frame(cleaned[t], min_size, is_3d)
+        
+        if t == 13:
+            structure = ndimage.generate_binary_structure(cleaned[t].ndim, connectivity=1)
+            label_31_mask = (cleaned[t] == 31)
+            if np.any(label_31_mask):
+                labeled_31, num_31 = ndimage.label(label_31_mask, structure=structure)
+                sizes_31 = ndimage.sum(label_31_mask, labeled_31, range(1, num_31 + 1)) if num_31 > 0 else []
+                print(f"AFTER Frame 13: Label 31 has {num_31} components, sizes: {sizes_31}\n")
+        
+        if verbose and (stats['reassigned'] > 0 or stats['removed'] > 0):
+            timepoint_name = "Timepoint" if is_3d else "Frame"
+            unit = "voxels" if is_3d else "pixels"
+            print(f"  {timepoint_name} {t}: reassigned {stats['reassigned']} {unit}, "
+                  f"removed {stats['removed']} small labels")
+        
+        total_reassigned += stats['reassigned']
+        total_removed += stats['removed']
     
     if verbose:
         unit = "voxels" if is_3d else "pixels"
         print(f"\nTotal {unit} reassigned: {total_reassigned}")
+        print(f"Total small labels removed: {total_removed}")
         print("="*60 + "\n")
     
     return cleaned
 
+
+def _clean_frame(frame, min_size, is_3d):
+    """
+    Single-pass cleaning: Find and reassign disconnected fragments
+    """
+    structure = ndimage.generate_binary_structure(frame.ndim, connectivity=1)
+    total_stats = {'reassigned': 0, 'removed': 0}
+    
+    # Get all unique labels
+    unique_labels = np.unique(frame)
+    unique_labels = unique_labels[unique_labels > 0]
+    
+    component_info = {}
+    next_id = 0
+    label_components = {}
+    
+    for label in unique_labels:
+        label_mask = (frame == label)
+        labeled, num_comps = ndimage.label(label_mask, structure=structure)
+        
+        if num_comps <= 1:
+            continue  # Skip if only 1 component
+        
+        label_components[label] = []
+        
+        for comp_idx in range(1, num_comps + 1):
+            comp_mask = (labeled == comp_idx)
+            size = int(np.sum(comp_mask))
+            
+            component_info[next_id] = {
+                'original_label': int(label),
+                'size': size,
+                'mask': comp_mask
+            }
+            label_components[label].append(next_id)
+            next_id += 1
+    
+    components_to_reassign = []
+    
+    for label, comp_ids in label_components.items():
+        sizes = [component_info[cid]['size'] for cid in comp_ids]
+        largest_idx = np.argmax(sizes)
+        largest_size = sizes[largest_idx]
+        
+        if largest_size < min_size:
+            components_to_reassign.extend(comp_ids)
+            total_stats['removed'] += 1
+        else:
+            for i, comp_id in enumerate(comp_ids):
+                if i != largest_idx:
+                    components_to_reassign.append(comp_id)
+    
+    for comp_id in components_to_reassign:
+        info = component_info[comp_id]
+        neighbor = _find_neighbor_label(info['mask'], frame, info['original_label'], structure)
+        frame[info['mask']] = neighbor
+        total_stats['reassigned'] += info['size']
+    
+    return total_stats
+
+
+def _find_neighbor_label(mask, frame, current_label, structure):
+    """
+    Find most common neighboring label using dilation.
+    """
+    dilated = ndimage.binary_dilation(mask, structure=structure)
+    neighbor_mask = dilated & ~mask
+    
+    neighbor_labels = frame[neighbor_mask]
+    neighbor_labels = neighbor_labels[(neighbor_labels > 0) & (neighbor_labels != current_label)]
+    
+    if len(neighbor_labels) == 0:
+        return 0
+    
+    unique, counts = np.unique(neighbor_labels, return_counts=True)
+    return unique[np.argmax(counts)]
+
+
+def _get_connectivity_structure(is_3d):
+    """Get connectivity structure for ndimage.label."""
+    if is_3d:
+        return np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+                        [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+                        [[0, 0, 0], [0, 1, 0], [0, 0, 0]]], dtype=bool)
+    else:
+        return np.array([[0, 1, 0],
+                        [1, 1, 1],
+                        [0, 1, 0]], dtype=bool)
 
 def get_cleaning_stats(original, cleaned):
     """
