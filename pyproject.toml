@@ -22,6 +22,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-image",
 ]
 description = ""
 keywords = [
@@ -31,5 +34,39 @@ keywords = [
     "tissue",
 ]
 name = "easytrack"
+version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.9"
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "pytest-cov",
+    "tox",
+    "imagecodecs",
+    "coverage"
+]
+
+[tool.setuptools]
+py-modules = ["presets", "utils", "widget", "tracking", "launch", "example"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=. --cov-report=term-missing --cov-report=html --cov-fail-under=60"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "example.py",
+    "launch.py",
+    "setup.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
