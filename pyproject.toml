@@ -43,6 +43,8 @@ testing = [
     "pytest",
     "pytest-cov",
     "tox",
+    "imagecodecs",
+    "coverage"
 ]
 
 [tool.setuptools]
