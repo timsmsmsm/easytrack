@@ -60,8 +60,6 @@ omit = [
     "tests/*",
     "example.py",
     "launch.py",
-    "widget.py",
-    "tracking.py",
     "setup.py",
     "*/__pycache__/*",
 ]
