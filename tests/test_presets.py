@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 
-from presets import (
+from src.easytrack.presets import (
     load_config_from_json,
     create_btrack_config_dict,
     load_preset_if_exists,

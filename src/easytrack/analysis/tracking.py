@@ -23,7 +23,7 @@ from qtpy.QtCore import QThread, Signal
 import btrack
 from btrack import utils, config
 
-from presets import create_btrack_config_dict
+from src.easytrack.presets import create_btrack_config_dict
 
 
 # ============= TRACKING PROCESS =============
