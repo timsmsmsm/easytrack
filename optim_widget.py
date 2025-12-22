@@ -30,7 +30,7 @@ from qtpy.QtCore import QTimer
 
 from optim_backend import prepare_layer_for_optimization
 from optim_manager import OptimizationManager
-from optim_tracking import run_tracking_with_params, format_params_summary
+from tracking import run_tracking_with_params
 from utils import clean_segmentation, get_cleaning_stats
 
 
@@ -552,7 +552,6 @@ class BtrackOptimizationWidget:
         
         # Get selected trial
         if not self.best_trials_combo.value:
-            # Preserve trial count in error message
             n_trials = len(self.best_trials) if self.best_trials else 0
             self.results_info_label.value = (
                 f"<font color='green'><b>{n_trials} trials available</b></font><br>"
@@ -560,11 +559,11 @@ class BtrackOptimizationWidget:
             )
             return
         
-        # Store current dropdown choices to restore later if needed
+        # Store current dropdown choices to restore later
         current_choices = list(self.best_trials_combo.choices)
         current_selection = self.best_trials_combo.value
         
-        # Parse trial number from dropdown selection
+        # Parse trial number
         trial_label = self.best_trials_combo.value
         trial_num = int(trial_label.split(":")[0].replace("Trial ", ""))
         
@@ -581,7 +580,6 @@ class BtrackOptimizationWidget:
                 f"<font color='green'><b>{n_trials} trials available</b></font><br>"
                 f"<font color='red'>❌ Trial not found</font>"
             )
-            # Restore choices
             self.best_trials_combo.choices = current_choices
             return
         
@@ -593,7 +591,6 @@ class BtrackOptimizationWidget:
                 f"<font color='green'><b>{n_trials} trials available</b></font><br>"
                 f"<font color='red'>❌ Layer not found</font>"
             )
-            # Restore choices
             self.best_trials_combo.choices = current_choices
             return
         
@@ -609,33 +606,58 @@ class BtrackOptimizationWidget:
                 self.voxel_x_spinbox.value
             )
             
-            # Run tracking
-            tracked_seg, tracks, stats = run_tracking_with_params(
+            # Run tracking WITH napari data
+            tracked_seg, tracks, stats, napari_data, napari_properties, napari_graph = run_tracking_with_params(
                 segmentation=layer.data,
                 params=selected_trial['params'],
-                voxel_scale=voxel_sizes
+                voxel_scale=voxel_sizes,
+                return_napari=True
             )
             
-            # Add as new layer
-            layer_name = f"Tracked (Trial {trial_num}, AOGM: {selected_trial['aogm']:.2f})"
-            self.viewer.add_labels(tracked_seg, name=layer_name)
+            # Add tracked labels layer
+            labels_layer_name = f"Tracked Labels (Trial {trial_num}, AOGM: {selected_trial['aogm']:.2f})"
+            self.viewer.add_labels(tracked_seg, name=labels_layer_name)
+            
+            # Add tracks layer
+            tracks_layer_name = f"Tracks (Trial {trial_num}, AOGM: {selected_trial['aogm']:.2f})"
+            try:
+                # Clean up empty dicts for napari
+                if napari_properties is not None and isinstance(napari_properties, dict) and len(napari_properties) == 0:
+                    napari_properties = None
+                
+                if napari_graph is not None and isinstance(napari_graph, dict) and len(napari_graph) == 0:
+                    napari_graph = None
+                
+                self.viewer.add_tracks(
+                    napari_data,
+                    properties=napari_properties,
+                    graph=napari_graph,
+                    name=tracks_layer_name,
+                    tail_width=2,
+                    tail_length=10,
+                    head_length=0
+                )
+                print(f"✅ Created tracks layer: {tracks_layer_name}")
+            except Exception as e:
+                print(f"⚠️ Could not create tracks layer: {e}")
+                traceback.print_exc()
             
             # Update status
             self.status_label.value = "<font color='green'>✅ Tracking applied</font>"
             
-            # PRESERVE the trial count info and add success message
+            # Preserve trial count info
             n_trials = len(self.best_trials)
             self.results_info_label.value = (
-                f"<font color='green'><b>{n_trials} trials available | Last applied: {layer_name}</b></font><br>"
+                f"<font color='green'><b>{n_trials} trials available | Last applied: {labels_layer_name}</b></font><br>"
                 f"Tracks: {stats['total_tracks']} | >5 frames: {stats['tracks_gt_5']} | >10 frames: {stats['tracks_gt_10']}"
             )
             
-            print(f"\n✅ Tracking applied: {layer_name}")
+            print(f"\n✅ Tracking applied: {labels_layer_name}")
+            print(f"✅ Tracks layer: {tracks_layer_name}")
             
         except Exception as e:
             self.status_label.value = "<font color='red'>❌ Tracking failed</font>"
             
-            # PRESERVE trial count even on error
             n_trials = len(self.best_trials) if self.best_trials else 0
             self.results_info_label.value = (
                 f"<font color='green'><b>{n_trials} trials available</b></font><br>"
@@ -645,14 +667,13 @@ class BtrackOptimizationWidget:
             traceback.print_exc()
         
         finally:
-            # ALWAYS restore the dropdown choices
+            # Restore dropdown choices
             if current_choices:
                 self.best_trials_combo.choices = current_choices
-                # Try to restore the selection too
                 try:
                     self.best_trials_combo.value = current_selection
                 except:
-                    pass  # Selection might not be valid anymore, that's ok
+                    pass
             
             self.apply_tracking_button.enabled = True
 
@@ -723,7 +744,6 @@ class BtrackOptimizationWidget:
                 return
             
             # Start optuna-dashboard in a subprocess
-            # The dashboard will run on http://127.0.0.1:8080
             storage_url = f"sqlite:///{db_path}"
             
             print(f"\n📊 Launching Optuna dashboard...")
