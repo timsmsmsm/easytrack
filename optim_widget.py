@@ -1,5 +1,5 @@
 """
-Napari widget for btrack parameter optimization.
+Napari widget for btrack parameter tuning.
 
 Provides a GUI for:
 - Selecting ground truth Labels layer
@@ -7,7 +7,7 @@ Provides a GUI for:
 - Running optimization in background
 - Monitoring progress
 - Applying optimized parameters to run tracking
-- Cleaning segmentation before optimization
+- Cleaning segmentation
 """
 
 from pathlib import Path
@@ -35,7 +35,7 @@ from utils import clean_segmentation, get_cleaning_stats
 
 
 class BtrackOptimizationWidget:
-    """Main widget for btrack parameter optimization."""
+    """Main widget for btrack parameter tuning."""
     
     def __init__(self, viewer: napari.Viewer):
         self.viewer = viewer
@@ -49,7 +49,7 @@ class BtrackOptimizationWidget:
         self.progress_timer = None
         
         # Default output directory
-        self.default_output_dir = Path.home() / 'napari_btrack_optimization'
+        self.default_output_dir = Path.home() / 'easytrack_optimization'
         self.default_output_dir.mkdir(exist_ok=True)
         
         # Build UI

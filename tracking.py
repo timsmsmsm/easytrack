@@ -39,7 +39,7 @@ def run_tracking_process(
     Run tracking in a separate process using file-based I/O.
     
     Args:
-        input_file: Path to input segmentation .npy file
+        input_file: Path to input segmentation file
         output_file: Path to save output tracked segmentation
         params: Tracking parameters
         progress_queue: Queue to send progress updates
