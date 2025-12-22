@@ -21,6 +21,9 @@ share/python-wheels/
 *.manifest
 *.spec
 
+#optuna data
+*.db
+
 # Virtual Environment
 venv/
 ENV/

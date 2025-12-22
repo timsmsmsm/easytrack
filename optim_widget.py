@@ -7,6 +7,7 @@ Provides a GUI for:
 - Running optimization in background
 - Monitoring progress
 - Applying optimized parameters to run tracking
+- Cleaning segmentation before optimization
 """
 
 from pathlib import Path
@@ -30,6 +31,7 @@ from qtpy.QtCore import QTimer
 from optim_backend import prepare_layer_for_optimization
 from optim_manager import OptimizationManager
 from optim_tracking import run_tracking_with_params, format_params_summary
+from utils import clean_segmentation, get_cleaning_stats
 
 
 class BtrackOptimizationWidget:
@@ -200,6 +202,15 @@ class BtrackOptimizationWidget:
         self.cancel_button.enabled = False
         self.cancel_button.tooltip = "Cancel current optimization"
         
+        self.clean_button = PushButton(text="🧹 Clean Segmentation")
+        self.clean_button.clicked.connect(self._on_clean_clicked)
+        self.clean_button.tooltip = (
+            "Removes disconnected fragments from each label.\n\n"
+            "Keeps the largest piece and reassigns smaller bits to "
+            "neighboring labels. Useful to run before optimization as btrack "
+            "cannot handle disconnected fragments well."
+        )
+        
         self.view_dashboard_button = PushButton(text="📊 View Dashboard")
         self.view_dashboard_button.clicked.connect(self._on_view_dashboard_clicked)
         self.view_dashboard_button.tooltip = "Open Optuna dashboard in browser"
@@ -226,6 +237,7 @@ class BtrackOptimizationWidget:
             self.save_config_button,
             self.start_button,
             self.cancel_button,
+            self.clean_button,
             self.view_dashboard_button,
         ])
     
@@ -488,6 +500,53 @@ class BtrackOptimizationWidget:
         self.results_info_label.value = ""
         self._reset_ui_state()
     
+    def _on_clean_clicked(self):
+        """Handle clean button click."""
+        # Get selected layer
+        layer = self.layer_selector.value
+        
+        if layer is None:
+            self.status_label.value = "❌ Please select a layer first"
+            return
+        
+        segmentation = layer.data
+        
+        # Validate it's 3D
+        if segmentation.ndim != 3:
+            self.status_label.value = f"❌ Must be 3D (T,Y,X), got {segmentation.ndim}D"
+            return
+        
+        self.status_label.value = "🔄 Cleaning segmentation..."
+        
+        try:
+            # Clean the segmentation (prints progress to console)
+            cleaned_seg = clean_segmentation(segmentation, verbose=True)
+            
+            # Add as new layer
+            layer_name = f"{layer.name}_cleaned"
+            self.viewer.add_labels(cleaned_seg, name=layer_name)
+            
+            # Get stats
+            stats = get_cleaning_stats(segmentation, cleaned_seg)
+            
+            # Update status
+            self.status_label.value = "✅ Cleaning complete!"
+            self.results_info_label.value = (
+                f"Removed {stats['pixels_removed']} pixels, "
+                f"reassigned disconnected fragments"
+            )
+            
+            print(f"\n✅ Created cleaned layer: {layer_name}")
+            print(f"   Original labeled pixels: {stats['original_pixels']}")
+            print(f"   Cleaned labeled pixels: {stats['cleaned_pixels']}")
+            print(f"   Pixels removed: {stats['pixels_removed']}")
+            
+        except Exception as e:
+            self.status_label.value = "❌ Cleaning failed"
+            self.results_info_label.value = f"<font color='red'>Error: {str(e)}</font>"
+            print(f"\n❌ Error during cleaning: {e}")
+            traceback.print_exc()
+    
     def _on_apply_tracking_clicked(self):
         """Handle apply tracking button click."""
         
@@ -597,8 +656,6 @@ class BtrackOptimizationWidget:
             
             self.apply_tracking_button.enabled = True
 
-
-
     def _on_save_config_clicked(self):
         """Handle save config button click."""
         
@@ -633,7 +690,7 @@ class BtrackOptimizationWidget:
         
         try:
             # Import the write function
-            from src.optimization import write_best_params_to_config
+            from optim_pipeline import write_best_params_to_config
             
             # Write config
             write_best_params_to_config(selected_trial['params'], str(save_path))
