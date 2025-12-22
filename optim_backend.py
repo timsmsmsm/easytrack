@@ -16,6 +16,7 @@ import dataclasses
 import numpy.typing as npt
 import warnings
 from traccuracy.loaders import load_ctc_data
+from optim_pipeline import compute_scaling_factors
 
 # Suppress low contrast warnings from skimage (normal for label images)
 warnings.filterwarnings('ignore', message='.*is a low contrast image.*')
@@ -47,25 +48,6 @@ class CellTrackingChallengeDataset:
         ndim = len(dims)
         scaled_dims = [dims[idx]*self.scale[idx] for idx in range(ndim)]
         return tuple(zip([0]*ndim, scaled_dims))
-
-
-def compute_scaling_factors(voxel_sizes: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    """
-    Compute the scaling factors to make the image isotropic.
-
-    Args:
-        voxel_sizes: A tuple of three voxel sizes in micrometres (t, y, x).
-
-    Returns:
-        A tuple of three scaling factors (st, sy, sx) to make the image isotropic.
-    """
-    vt, vy, vx = voxel_sizes
-    avg_voxel_size = (vt + vy + vx) / 3.0
-    st = avg_voxel_size / vt
-    sy = avg_voxel_size / vy
-    sx = avg_voxel_size / vx
-    return st, sy, sx
-
 
 def _clean_ctc_directory(tra_dir: Path):
     """Remove any existing CTC files from previous runs."""
