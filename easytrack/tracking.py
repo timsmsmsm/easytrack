@@ -8,6 +8,16 @@ Provides:
 - Process-based execution for cancellability
 """
 
+import multiprocessing
+import sys
+
+# Fix for macOS CoreFoundation fork issue
+if sys.platform == 'darwin':  # Only on macOS
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass  # Already set
+
 import os
 import json
 import tempfile

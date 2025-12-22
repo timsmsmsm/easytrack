@@ -27,7 +27,7 @@ from magicgui.widgets import (
     Container, Label, PushButton, ComboBox, 
     create_widget, CheckBox, FileEdit
 )
-from qtpy.QtCore import QTimer
+from qtpy.QtCore import QTimer, Qt
 
 from .optim_backend import prepare_layer_for_optimization
 from .optim_manager import OptimizationManager
@@ -75,7 +75,7 @@ class BtrackOptimizationWidget(Container):
         )
         self.layer_selector.changed.connect(self._on_layer_changed)
         
-        self.layer_stats_label = Label(value="<i>Select a layer</i>")
+        self.layer_stats_label = Label(value="<center><i>Select a layer</i></center>")
         
         # ============= OPTIMIZATION PARAMETERS =============
         self.study_name_input = create_widget(
@@ -171,9 +171,11 @@ class BtrackOptimizationWidget(Container):
         
         # ============= STATUS =============
         self.status_label = Label(value="Ready | Best: -- | Time: 0s")
+        self.status_label.native.setAlignment(Qt.AlignCenter)
         
         # ============= RESULTS =============
         self.results_info_label = Label(value="")
+        self.results_info_label.native.setAlignment(Qt.AlignCenter)
         
         self.best_trials_combo = ComboBox(
             label="Best Trial",
@@ -265,7 +267,7 @@ class BtrackOptimizationWidget(Container):
     def _on_layer_changed(self, layer):
         """Handle layer selection change."""
         if layer is None:
-            self.layer_stats_label.value = "<i>No layer selected</i>"
+            self.layer_stats_label.value = "<center><i>No layer selected</i></center>"
             self.start_button.enabled = False
             return
         
@@ -276,7 +278,7 @@ class BtrackOptimizationWidget(Container):
             # Validate
             if segmentation.ndim != 3:
                 self.layer_stats_label.value = (
-                    f"<font color='red'>❌ Must be 3D (T,Y,X), got {segmentation.ndim}D</font>"
+                    f"<center><font color='red'>❌ Must be 3D (T,Y,X), got {segmentation.ndim}D</font></center>"
                 )
                 self.start_button.enabled = False
                 return
@@ -286,25 +288,25 @@ class BtrackOptimizationWidget(Container):
             num_labels = len(unique_labels[unique_labels > 0])
             
             if num_labels == 0:
-                self.layer_stats_label.value = "<font color='red'>❌ No labels found</font>"
+                self.layer_stats_label.value = "<center><font color='red'>❌ No labels found</font></center>"
                 self.start_button.enabled = False
                 return
             
             if T < 2:
                 self.layer_stats_label.value = (
-                    f"<font color='red'>❌ Need ≥2 frames, got {T}</font>"
+                    f"<center><font color='red'>❌ Need ≥2 frames, got {T}</font></center>"
                 )
                 self.start_button.enabled = False
                 return
             
             # Valid layer
             self.layer_stats_label.value = (
-                f"<font color='green'>✓ {segmentation.shape} | {T} frames | {num_labels} labels</font>"
+                f"<center><font color='green'>✓ {segmentation.shape} | {T} frames | {num_labels} labels</font></center>"
             )
             self.start_button.enabled = True
             
         except Exception as e:
-            self.layer_stats_label.value = f"<font color='red'>❌ Error: {str(e)}</font>"
+            self.layer_stats_label.value = f"<center><font color='red'>❌ Error: {str(e)}</font></center>"
             self.start_button.enabled = False
     
     def _on_start_clicked(self):
