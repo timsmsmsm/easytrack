@@ -16,7 +16,7 @@ import optuna
 from datetime import datetime
 from qtpy.QtCore import QObject, Signal
 
-from optim_pipeline import optimize_dataset_with_timeout
+from .optim_pipeline import optimize_dataset_with_timeout
 
 
 class OptimizationSignals(QObject):

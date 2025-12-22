@@ -20,6 +20,7 @@ import subprocess
 import webbrowser
 
 import napari
+from napari import Viewer
 import numpy as np
 from magicgui import magicgui
 from magicgui.widgets import (
@@ -28,16 +29,17 @@ from magicgui.widgets import (
 )
 from qtpy.QtCore import QTimer
 
-from optim_backend import prepare_layer_for_optimization
-from optim_manager import OptimizationManager
-from tracking import run_tracking_with_params
-from utils import clean_segmentation, get_cleaning_stats
+from .optim_backend import prepare_layer_for_optimization
+from .optim_manager import OptimizationManager
+from .tracking import run_tracking_with_params
+from .utils import clean_segmentation, get_cleaning_stats
 
 
-class BtrackOptimizationWidget:
+class BtrackOptimizationWidget(Container):
     """Main widget for btrack parameter tuning."""
     
     def __init__(self, viewer: napari.Viewer):
+        super().__init__()  # Initialize Container
         self.viewer = viewer
         self.optimization_manager = OptimizationManager()
         
@@ -215,8 +217,7 @@ class BtrackOptimizationWidget:
         self.view_dashboard_button.clicked.connect(self._on_view_dashboard_clicked)
         self.view_dashboard_button.tooltip = "Open Optuna dashboard in browser"
         
-        # ============= ASSEMBLE CONTAINER =============
-        self.container = Container(widgets=[
+        self.extend([
             self.layer_selector,
             self.layer_stats_label,
             self.study_name_input,

@@ -16,7 +16,7 @@ import dataclasses
 import numpy.typing as npt
 import warnings
 from traccuracy.loaders import load_ctc_data
-from optim_pipeline import compute_scaling_factors
+from .optim_pipeline import compute_scaling_factors
 
 # Suppress low contrast warnings from skimage (normal for label images)
 warnings.filterwarnings('ignore', message='.*is a low contrast image.*')

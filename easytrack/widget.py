@@ -17,14 +17,16 @@ import traceback
 import json
 
 import napari
+
+from napari import Viewer
 import numpy as np
 from magicgui import magicgui
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from presets import get_presets, load_config_from_json, create_btrack_config_dict
-from tracking import TrackingManager
-from utils import clean_segmentation, get_cleaning_stats
+from .presets import get_presets, load_config_from_json, create_btrack_config_dict
+from .tracking import TrackingManager
+from .utils import clean_segmentation, get_cleaning_stats
 
 
 # Parameter descriptions for tooltips
@@ -78,11 +80,11 @@ PARAM_DESCRIPTIONS = {
     )
 }
 
-
-class BtrackPresetWidget:
+class BtrackPresetWidget(Container):
     """Main widget for btrack parameter preset selection."""
     
     def __init__(self, viewer: napari.Viewer):
+        super().__init__()  # Initialize Container
         self.viewer = viewer
         self.tracking_manager = TrackingManager()
         self.presets = get_presets()
@@ -223,7 +225,7 @@ class BtrackPresetWidget:
         self.progress_label = Label(value="")
         
         # Assemble container
-        self.container = Container(widgets=[
+        self.extend([
             header,
             self.preset_selector,
             self.json_file_picker,
