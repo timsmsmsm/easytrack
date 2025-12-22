@@ -88,8 +88,8 @@ def run_tracking_with_params(
             tracker.volume = volume[::-1]
             tracker.track(step_size=100)
             tracker.optimize()
-            
             tracks = tracker.tracks
+            lbep = tracker.LBEP
             print(f"  Tracking complete: {len(tracks)} tracks found")
             
             # Update segmentation with track IDs

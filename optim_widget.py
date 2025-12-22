@@ -134,12 +134,12 @@ class BtrackOptimizationWidget:
             tooltip="Save results here"
         )
         
-        # Advanced section toggle
-        self.show_advanced_button = PushButton(text="▶ Advanced")
+        # Voxel Size section toggle
+        self.show_advanced_button = PushButton(text="▶ Voxel Size")
         self.show_advanced_button.clicked.connect(self._toggle_advanced)
         self.advanced_visible = False
         
-        # Advanced section (hidden by default)
+        # Voxel Size section (hidden by default)
         self.voxel_t_spinbox = create_widget(
             value=1.0,
             annotation=float,
@@ -246,12 +246,12 @@ class BtrackOptimizationWidget:
         self.advanced_visible = not self.advanced_visible
         
         if self.advanced_visible:
-            self.show_advanced_button.text = "▼ Advanced"
+            self.show_advanced_button.text = "▼ Voxel Size"
             self.voxel_t_spinbox.visible = True
             self.voxel_y_spinbox.visible = True
             self.voxel_x_spinbox.visible = True
         else:
-            self.show_advanced_button.text = "▶ Advanced"
+            self.show_advanced_button.text = "▶ Voxel Size"
             self.voxel_t_spinbox.visible = False
             self.voxel_y_spinbox.visible = False
             self.voxel_x_spinbox.visible = False
