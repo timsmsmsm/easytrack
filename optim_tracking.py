@@ -85,7 +85,7 @@ def run_tracking_with_params(
             tracker.configure(conf)
             tracker.max_search_radius = max_search_radius
             tracker.append(objects)
-            tracker.volume = volume
+            tracker.volume = volume[::-1]
             tracker.track(step_size=100)
             tracker.optimize()
             
