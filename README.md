@@ -1,6 +1,6 @@
 # Welcome to easytrack!
 
-EasyTrack is a napari plugin.
+easytrack is a napari plugin.
 
 ## Installation
 
