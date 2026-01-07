@@ -14,7 +14,7 @@ Usage:
 
 import napari
 <<<<<<< HEAD:src/easytrack/example.py
-from src.easytrack.widgets.widget import BtrackPresetWidget
+from easytrack.widgets.widget import BtrackPresetWidget
 from utils import load_segmentation
 =======
 from easytrack.widget import BtrackPresetWidget

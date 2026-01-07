@@ -31,8 +31,8 @@ from qtpy.QtCore import QTimer, Qt
 
 from ..analysis.optim_backend import prepare_layer_for_optimization
 from ..analysis.optim_manager import OptimizationManager
-from .tracking import run_tracking_with_params
-from .utils import clean_segmentation, get_cleaning_stats
+from ..analysis.tracking import run_tracking_with_params
+from ..utils import clean_segmentation, get_cleaning_stats
 
 
 class BtrackOptimizationWidget(Container):
