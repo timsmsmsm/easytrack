@@ -13,8 +13,13 @@ Usage:
 """
 
 import napari
+<<<<<<< HEAD:src/easytrack/example.py
 from src.easytrack.widgets.widget import BtrackPresetWidget
 from utils import load_segmentation
+=======
+from easytrack.widget import BtrackPresetWidget
+from easytrack.utils import load_segmentation
+>>>>>>> main:example.py
 
 
 # ============= YOUR SETTINGS =============
@@ -71,16 +76,6 @@ if __name__ == '__main__':
     layer_name = "Segmentation"
     seg_layer = viewer.add_labels(segmentation, name=layer_name)
     
-    # Add the tracking widget
-    widget = BtrackPresetWidget(viewer)
-    viewer.window.add_dock_widget(
-        widget.container,
-        area='right',
-        name='Btrack Tracking'
-    )
-    
-    # Pre-select your data layer
-    widget.layer_selector.value = seg_layer
     
     print("\n✅ Ready to track!")
     print("\n📋 Next steps:")
