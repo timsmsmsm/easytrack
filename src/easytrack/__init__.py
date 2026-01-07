@@ -1,17 +1,11 @@
-from __future__ import annotations
+"""easytrack - Cell tracking with btrack presets and optimization."""
 
-import logging
+__version__ = "0.1.0"
 
-# get the logger instance
-logger = logging.getLogger(__name__)
+from .widget import BtrackPresetWidget
+from .optim_widget import BtrackOptimizationWidget
 
-formatter = logging.Formatter(
-    "%(levelname)s [%(asctime)s] epitools: %(message)s",
-    datefmt="%Y/%m/%d %I:%M:%S %p",
-)
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
-logger.setLevel("INFO")
-logger.propagate = False
+__all__ = [
+    "BtrackPresetWidget",
+    "BtrackOptimizationWidget",
+]

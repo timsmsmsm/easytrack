@@ -3,6 +3,17 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
+name = "easytrack"
+version = "0.1.0"
+description = "Cell tracking with btrack presets and parameter optimization"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = [
+    "biology",
+    "cell",
+    "tracking",
+    "tissue",
+]
 authors = [
     {email = "tim.huygelen.20@ucl.ac.uk", name = "Tim Huygelen"},
     {email = "p.munuera@ucl.ac.uk", name = "Pablo Vicente Munuera"},
@@ -11,12 +22,13 @@ authors = [
 classifiers = [
     "Framework :: napari",
     "Intended Audience :: Science/Research",
-    #"License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    #"Programming Language :: Python :: 3.10",
-    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Image Processing",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -29,21 +41,14 @@ dependencies = [
     "qtpy",
     "scipy",
     "scikit-image",
+    "napari",
+    "magicgui",
+    "qtpy",
+    "btrack",
+    "optuna",
 ]
-description = ""
-keywords = [
-    "biology",
-    "cell",
-    "tracking",
-    "tissue",
-]
-name = "easytrack"
-version = "0.1.0"
-readme = "README.md"
-requires-python = ">=3.9"
 
 dynamic = [
-    "version",
 ]
 
 [project.optional-dependencies]
@@ -73,8 +78,12 @@ testing = [
     "coverage"
 ]
 
+[project.entry-points."napari.manifest"]
+easytrack = "easytrack:napari.yaml"
+
 [tool.setuptools]
-py-modules = ["presets", "utils", "widget", "tracking", "launch", "example"]
+package-dir = {"" = "src"}
+packages = ["easytrack"]
 
 [tool.pytest.ini_options]
 addopts = "--color=yes -v"
