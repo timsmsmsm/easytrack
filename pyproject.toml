@@ -81,11 +81,14 @@ testing = [
 ]
 
 [project.entry-points."napari.manifest"]
-easytrack = "easytrack:napari.yaml"
+napari-easytrack = "napari_easytrack:napari.yaml"
 
 [tool.setuptools]
+include-package-data = true
 package-dir = {"" = "src"}
-packages = ["easytrack"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "--color=yes -v"
@@ -100,7 +103,7 @@ report = {skip_covered = true, sort = "cover", exclude_lines = [
     "raise NotImplementedError",
 ]}
 run = {branch = true, parallel = true, source = [
-    "easytrack",
+    "napari_easytrack",
 ]}
 paths.source = [
     "src",

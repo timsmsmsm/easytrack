@@ -4,12 +4,12 @@ contributions:
   commands:
     - id: napari-easytrack.preset_widget
       title: Btrack Parameter Presets
-      python_name: napari-easytrack.widgets.widget:BtrackPresetWidget
+      python_name: napari_easytrack.widgets.widget:BtrackPresetWidget
     - id: napari-easytrack.optimization_widget
       title: Btrack Parameter Optimization
-      python_name: napari-easytrack.widgets.optim_widget:BtrackOptimizationWidget
+      python_name: napari_easytrack.widgets.optim_widget:BtrackOptimizationWidget
   widgets:
     - command: napari-easytrack.preset_widget
       display_name: btrack Presets
-    - command: napari-easytrack.optimization_widget
+    - command: napari_easytrack.optimization_widget
       display_name: Parameter Optimization

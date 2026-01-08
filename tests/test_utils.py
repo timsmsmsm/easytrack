@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import os
 
-from src.easytrack.utils import (
+from src.napari_easytrack.utils import (
     _is_already_labeled,
     _convert_to_labels,
     clean_segmentation,

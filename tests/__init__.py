@@ -1,1 +1,1 @@
-"""Tests for easytrack package."""
+"""Tests for napari_easytrack package."""

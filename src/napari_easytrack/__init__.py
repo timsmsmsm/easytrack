@@ -1,4 +1,4 @@
-"""napari-easytrack - Cell tracking with btrack presets and optimization."""
+"""napari_easytrack - Cell tracking with btrack presets and optimization."""
 
 __version__ = "0.1.0"
 
