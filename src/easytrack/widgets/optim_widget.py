@@ -10,21 +10,17 @@ Provides a GUI for:
 - Cleaning segmentation
 """
 
-from pathlib import Path
-from typing import Optional
-import traceback
 import shutil
-from datetime import datetime
-import sys
 import subprocess
+import traceback
 import webbrowser
+from datetime import datetime
+from pathlib import Path
 
 import napari
-from napari import Viewer
 import numpy as np
-from magicgui import magicgui
 from magicgui.widgets import (
-    Container, Label, PushButton, ComboBox, 
+    Container, Label, PushButton, ComboBox,
     create_widget, CheckBox, FileEdit
 )
 from qtpy.QtCore import QTimer, Qt

@@ -10,10 +10,9 @@ This module handles:
 
 import threading
 import time
-from pathlib import Path
 from typing import Optional, Callable, Dict, List, Tuple
+
 import optuna
-from datetime import datetime
 from qtpy.QtCore import QObject, Signal
 
 from .optim_pipeline import optimize_dataset_with_timeout
