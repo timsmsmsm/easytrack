@@ -13,13 +13,7 @@ Usage:
 """
 
 import napari
-<<<<<<< HEAD:src/easytrack/example.py
-from easytrack.widgets.widget import BtrackPresetWidget
-from utils import load_segmentation
-=======
-from easytrack.widget import BtrackPresetWidget
-from easytrack.utils import load_segmentation
->>>>>>> main:example.py
+from src.easytrack.utils import load_segmentation
 
 
 # ============= YOUR SETTINGS =============
