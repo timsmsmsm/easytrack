@@ -11,5 +11,5 @@ contributions:
   widgets:
     - command: napari-easytrack.preset_widget
       display_name: btrack Presets
-    - command: napari_easytrack.optimization_widget
+    - command: napari-easytrack.optimization_widget
       display_name: Parameter Optimization
