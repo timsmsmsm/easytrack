@@ -13,7 +13,7 @@ Usage:
 """
 
 import napari
-from src.easytrack.utils import load_segmentation
+from src.napari_easytrack.utils import load_segmentation
 
 
 # ============= YOUR SETTINGS =============

@@ -22,9 +22,9 @@ import numpy as np
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from src.easytrack.presets import get_presets, load_config_from_json, create_btrack_config_dict
-from src.easytrack.analysis.tracking import TrackingManager
-from src.easytrack.utils import clean_segmentation, get_cleaning_stats
+from ..presets import get_presets, load_config_from_json, create_btrack_config_dict
+from ..analysis.tracking import TrackingManager
+from ..utils import clean_segmentation, get_cleaning_stats
 
 
 # Parameter descriptions for tooltips
