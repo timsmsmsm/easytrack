@@ -1,5 +1,5 @@
 """
-Utilities for Btrack Tracking
+Utilities for btrack Tracking
 
 Data Loading:
 - Load multiple skeleton/segmentation files (time series)

@@ -1,5 +1,5 @@
 """
-Simple Example: Cell Tracking with Btrack
+Simple Example: Cell Tracking with btrack
 
 This example shows you how to:
 1. Load your segmentation data (any format)
