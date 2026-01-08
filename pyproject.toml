@@ -1,13 +1,12 @@
 [build-system]
-requires = ["setuptools >= 77.0.3"]
+requires = ["setuptools >= 77.0.3", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "napari-easytrack"
-version = "0.1.0"
 description = "Cell tracking with btrack presets and parameter optimization"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10, <=3.12"
 keywords = [
     "biology",
     "cell",
@@ -25,7 +24,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -46,9 +44,13 @@ dependencies = [
     "qtpy",
     "btrack",
     "optuna",
+    "joblib",
+    "traccuracy",
+    "numba==0.62.1"
 ]
 
 dynamic = [
+    "version",
 ]
 
 [project.optional-dependencies]
