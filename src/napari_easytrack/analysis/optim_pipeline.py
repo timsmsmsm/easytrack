@@ -1,22 +1,21 @@
-import btrack
-from btrack import utils, config
+import gc
+import json
+from multiprocessing import Process, Pipe
+from multiprocessing import Semaphore
 
-#import traccuracy
-from traccuracy.loaders._ctc import ctc_to_graph, _get_node_attributes
+import btrack
+# misc imports
+import numpy as np
+import optuna
+import pandas as pd
+from btrack import utils, config
+from joblib import parallel_backend
 from traccuracy._tracking_graph import TrackingGraph
-from traccuracy import run_metrics
+# import traccuracy
+from traccuracy.loaders._ctc import ctc_to_graph, _get_node_attributes
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics, DivisionMetrics
 
-#misc imports
-import numpy as np
-import pandas as pd
-import json
-import gc
-from joblib import parallel_backend
-import optuna
-from multiprocessing import Process, Pipe
-from multiprocessing import Semaphore
 
 def write_best_params_to_config(params, config_file_path):
     """

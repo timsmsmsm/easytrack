@@ -4,7 +4,6 @@ from btrack import utils, config
 #import traccuracy
 from traccuracy.loaders._ctc import ctc_to_graph, _get_node_attributes
 from traccuracy._tracking_graph import TrackingGraph
-from traccuracy import run_metrics
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics, DivisionMetrics
 

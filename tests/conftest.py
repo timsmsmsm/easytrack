@@ -1,4 +1,4 @@
-"""Pytest configuration for easytrack tests."""
+"""Pytest configuration for napari_easytrack tests."""
 
 import sys
 from pathlib import Path
