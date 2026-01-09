@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "napari-easytrack"
+version = "0.1.1"
 description = "Cell tracking with btrack presets and parameter optimization"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,10 +48,6 @@ dependencies = [
     "joblib",
     "traccuracy",
     "numba==0.62.1"
-]
-
-dynamic = [
-    "0.1.1",
 ]
 
 [project.optional-dependencies]
