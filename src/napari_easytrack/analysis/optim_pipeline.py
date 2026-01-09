@@ -672,7 +672,7 @@ def objective(trial, dataset, gt_data, objectives):
         lbep, tracks = run_cell_tracking_algorithm(objects, conf, volume, params['max_search_radius'])
         segm = utils.update_segmentation(np.asarray(dataset.segmentation), tracks)
         results = calculate_accuracy(lbep, segm, gt_data)  
-        
+
         for attr, value in results.items():
             trial.set_user_attr(attr, value)
 

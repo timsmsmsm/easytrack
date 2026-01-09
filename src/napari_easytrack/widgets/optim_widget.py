@@ -710,7 +710,7 @@ class BtrackOptimizationWidget(Container):
         
         try:
             # Import the write function
-            from optim_pipeline import write_best_params_to_config
+            from ..analysis.optim_pipeline import write_best_params_to_config
             
             # Write config
             write_best_params_to_config(selected_trial['params'], str(save_path))
