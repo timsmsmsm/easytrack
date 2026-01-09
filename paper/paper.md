@@ -7,7 +7,7 @@ authors:
   - name: Tim Huygelen
     orcid: 0009-0007-0026-4531
     equal-contrib: true
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
+    affiliation: 1 # (Multiple affiliations must be quoted)
   - name: Alan Lowe
     affiliation: 2
   - name: Yanlan Mao
