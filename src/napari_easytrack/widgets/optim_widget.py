@@ -238,8 +238,11 @@ class BtrackOptimizationWidget(Container):
         self.view_dashboard_button.tooltip = "Open Optuna dashboard in browser"
         
         self.extend([
+            # Input Selection
             self.layer_selector,
             self.layer_stats_label,
+            
+            # Parameters
             self.study_name_input,
             self.n_trials_spinbox,
             self.timeout_spinbox,
@@ -247,20 +250,30 @@ class BtrackOptimizationWidget(Container):
             self.sampler_combo,
             self.parallel_checkbox,
             self.output_dir_picker,
+            
+            # Advanced Options
             self.show_advanced_button,
             self.voxel_t_spinbox,
             self.voxel_y_spinbox,
             self.voxel_x_spinbox,
+            
+            # Status Display
             self.status_label,
+            
+            # Results Section
             self.results_info_label,
             self.best_trials_combo,
             self.apply_tracking_button,
             self.save_config_button,
+            
+            # Action Buttons
             self.start_button,
             self.cancel_button,
+            
+            # Utility Buttons
             self.clean_button,
             self.remove_small_button, 
-            self.min_pixels_spinbox,  
+            self.min_pixels_spinbox,
             self.view_dashboard_button,
         ])
     

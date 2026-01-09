@@ -186,13 +186,17 @@ class BtrackPresetWidget(Container):
             label="Segmentation"
         )
         
-        # Action buttons
+        # Status Display
+        self.status_label = Label(value="Ready")
+        self.progress_label = Label(value="")
+        
+        # Action Buttons
         self.track_button = PushButton(text="🚀 Apply Tracking")
         self.track_button.clicked.connect(self._on_track_clicked)
         
         self.cancel_button = PushButton(text="❌ Cancel Tracking")
         self.cancel_button.clicked.connect(self._on_cancel_clicked)
-        self.cancel_button.enabled = False  # Initially disabled
+        self.cancel_button.enabled = False
         self.cancel_button.tooltip = (
             "Cancel the current tracking operation.\n\n"
             "If a tracking run is taking longer than usual, it's best to cancel it. "
@@ -200,6 +204,7 @@ class BtrackPresetWidget(Container):
             "result will likely be poor anyway."
         )
         
+        # Utility Buttons
         self.clean_button = PushButton(text="🧹 Clean Segmentation")
         self.clean_button.clicked.connect(self._on_clean_clicked)
         self.clean_button.tooltip = (
@@ -220,7 +225,7 @@ class BtrackPresetWidget(Container):
         self.min_pixels_spinbox = create_widget(
             value=4,
             annotation=int,
-            label="Min size to keep",  # or "Keep labels with ≥"
+            label="Min size to keep",
             widget_type="SpinBox",
             options={
                 "min": 1,
@@ -259,14 +264,14 @@ class BtrackPresetWidget(Container):
             divider2,
             layer_header,
             self.layer_selector,
+            self.status_label,       
+            self.progress_label,      
             self.track_button,
             self.cancel_button,
             self.clean_button,
             self.remove_small_button, 
             self.min_pixels_spinbox, 
             self.save_config_button,
-            self.status_label,
-            self.progress_label,
         ])
     
     def _on_preset_changed(self, preset_name: str):
