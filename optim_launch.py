@@ -12,7 +12,7 @@ def main():
     
     viewer.window.add_dock_widget(
         optim_widget.container,
-        name="btrack parameter tuning",
+        name="btrack Tuning",
         area="right"
     )
     
