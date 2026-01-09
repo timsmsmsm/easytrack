@@ -5,7 +5,7 @@ tags:
   - 
 authors:
   - name: Tim Huygelen
-    orcid: 0000-0000-0000-0000
+    orcid: 0009-0007-0026-4531
     equal-contrib: true
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
   - name: Alan Lowe
