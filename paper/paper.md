@@ -1,8 +1,12 @@
 ---
-title: 'EasyTrack: A napari plugin for cell tracking'
+title: 'EasyTrack: A napari plugin for automated parameter tuning in cell tracking'
 tags:
   - Python
-  - 
+  - napari
+  - cell biology
+  - image analysis
+  - computational biology
+  - bioimaging
 authors:
   - name: Tim Huygelen
     orcid: 0000-0000-0000-0000
@@ -14,6 +18,7 @@ authors:
     corresponding: true # (This is how to denote the corresponding author)
     affiliation: 1
   - given-names: Pablo Vicente-Munuera
+    corresponding: true # (This is how to denote the corresponding author)
     affiliation: 1
 affiliations:
  - name: Laboratory for Molecular Cell Biology, University College London, UK
