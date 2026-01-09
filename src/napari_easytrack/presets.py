@@ -145,10 +145,11 @@ def get_presets() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dictionary mapping preset names to their configs and descriptions
     """
-    # Load optimized configs from disk (if they exist)
-    disc2_params = load_preset_if_exists('configs/disc2_config.json')
-    _3d_params = load_preset_if_exists('configs/optimized_config_3d.json')
-    
+
+    MODULE_DIR = Path(__file__).parent
+    disc2_params = load_preset_if_exists(str(MODULE_DIR / 'configs/disc2_config.json'))
+    _3d_params = load_preset_if_exists(str(MODULE_DIR / 'configs/optimized_config_3d.json'))
+
     presets = {
         "Epithelial Cells (Default)": {
             "description": """
