@@ -222,7 +222,7 @@ class BtrackOptimizationWidget(Container):
         )
         
         self.min_pixels_spinbox = create_widget(
-            value=3,
+            value=4,
             annotation=int,
             label="Min size to keep",  # or "Keep labels with ≥"
             widget_type="SpinBox",
