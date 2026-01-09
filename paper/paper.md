@@ -42,10 +42,15 @@ bibliography: paper.bib
 
 
 
+
+
 # Research impact statement
 
 
+# AI Usage Policy
 
+GitHub Copilot was used to assist in writing some of the code for this project. 
+All code was reviewed and edited by the authors.
 
 # Citations
 
@@ -63,12 +68,7 @@ For a quick reference, the following citation commands can be used:
 
 # Figures
 
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+![Caption for example figure.\label{fig:workflow}](Fig_1_Workflow.png)
 
 # Acknowledgements
 
