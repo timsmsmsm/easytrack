@@ -200,8 +200,10 @@ class BtrackOptimizationWidget(Container):
         self.cancel_button = PushButton(text="Cancel")
         self.cancel_button.clicked.connect(self._on_cancel_clicked)
         self.cancel_button.enabled = False
-        self.cancel_button.tooltip = "Cancel current optimization"
-        
+        self.cancel_button.tooltip = (
+            "Cancel current optimization. "
+            "Note: Cancellation is not fully reliable and may not always succeed."
+        )
         self.clean_button = PushButton(text="🧹 Clean Segmentation")
         self.clean_button.clicked.connect(self._on_clean_clicked)
         self.clean_button.tooltip = (
