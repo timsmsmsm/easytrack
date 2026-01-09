@@ -680,6 +680,7 @@ class BtrackOptimizationWidget(Container):
 
     def _on_save_config_clicked(self):
         """Handle save config button click."""
+        from qtpy.QtWidgets import QFileDialog
         
         # Get selected trial
         if not self.best_trials_combo.value:
@@ -707,23 +708,37 @@ class BtrackOptimizationWidget(Container):
         # Generate default filename
         study_name = self.study_name_input.value
         default_filename = f"{study_name}_trial{trial_num}_config.json"
-        output_dir = Path(self.output_dir_picker.value)
-        save_path = output_dir / default_filename
+        
+        # Open save dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Config File",
+            default_filename,
+            "JSON Files (*.json)"
+        )
+        
+        if not file_path:
+            # User cancelled
+            return
+        
+        # Ensure .json extension
+        if not file_path.endswith('.json'):
+            file_path += '.json'
         
         try:
             # Import the write function
             from ..analysis.optim_pipeline import write_best_params_to_config
             
             # Write config
-            write_best_params_to_config(selected_trial['params'], str(save_path))
+            write_best_params_to_config(selected_trial['params'], str(file_path))
             
             # Preserve trial count in success message
             n_trials = len(self.best_trials)
             self.results_info_label.value = (
-                f"<font color='green'><b>{n_trials} trials available | Config saved: {save_path.name}</b></font>"
+                f"<font color='green'><b>{n_trials} trials available | Config saved: {Path(file_path).name}</b></font>"
             )
             
-            print(f"\n✅ Config saved to: {save_path}")
+            print(f"\n✅ Config saved to: {file_path}")
             
         except Exception as e:
             n_trials = len(self.best_trials) if self.best_trials else 0
@@ -733,7 +748,10 @@ class BtrackOptimizationWidget(Container):
             )
             print(f"\n❌ Error saving config: {e}")
             traceback.print_exc()
-    
+
+
+
+
     def _on_view_dashboard_clicked(self):
         """Launch Optuna dashboard in browser."""
         try:
