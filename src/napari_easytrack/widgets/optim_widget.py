@@ -354,24 +354,6 @@ class BtrackOptimizationWidget(Container):
         # Get parameters
         study_name = self.study_name_input.value
         n_trials = self.n_trials_spinbox.value
-
-        # Calculate total trials planned for this study
-        try:
-            storage = optuna.storages.RDBStorage(
-                url=f"sqlite:///{output_dir / 'btrack.db'}",
-                engine_kwargs={"connect_args": {"timeout": 10}}
-            )
-            if self.optimization_manager.study_exists(study_name):
-                study = optuna.load_study(study_name=study_name, storage=storage)
-                existing_trials = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
-                self.total_trials_planned = existing_trials + n_trials
-            else:
-                self.total_trials_planned = n_trials
-        except:
-            self.total_trials_planned = n_trials
-
-
-
         timeout = self.timeout_spinbox.value
         
         # Validate and get timeout penalty
@@ -447,23 +429,22 @@ class BtrackOptimizationWidget(Container):
         self.progress_timer.timeout.connect(self._update_progress)
         self.progress_timer.start(1000)  # Poll every 1 second
     
-    
     def _update_progress(self):
         """Update progress display by polling optimization manager."""
         progress = self.optimization_manager.get_progress()
         
         if progress is not None:
             trial_num, best_aogm, elapsed = progress
-            total_planned = getattr(self, 'total_trials_planned', trial_num)
+            n_trials = self.n_trials_spinbox.value
             
             self.status_label.value = (
-                f"🔄 Trial {trial_num}/{total_planned} | Best: {best_aogm:.2f} | Time: {elapsed}s"
+                f"🔄 Trial {trial_num}/{n_trials} | Best: {best_aogm:.2f} | Time: {elapsed}s"
             )
         
         # Check if complete
         if self.optimization_manager.is_complete():
             self.progress_timer.stop()
-
+    
     def _on_optimization_finished(self, study):
         """Handle successful optimization completion."""
         print("\n" + "="*60)
