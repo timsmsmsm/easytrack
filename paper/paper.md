@@ -14,6 +14,7 @@ authors:
     corresponding: true # (This is how to denote the corresponding author)
     affiliation: 1
   - given-names: Pablo Vicente-Munuera
+    corresponding: true
     affiliation: 1
 affiliations:
  - name: Laboratory for Molecular Cell Biology, University College London, UK
