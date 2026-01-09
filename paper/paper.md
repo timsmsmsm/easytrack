@@ -39,13 +39,13 @@ bibliography: paper.bib
 Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic processes 
 in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how tissues grow 
 and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking in time-lapse
-microscopy images [@Ulcina:2021], current tracking software often requires time-consuming manual parameter tuning to 
+microscopy images [@Btrack:2017], current tracking software often requires time-consuming manual parameter tuning to 
 achieve accurate results.
 
 # Software design
 
 
-
+![Caption for example figure.\label{fig:workflow}](Fig_1_Workflow.png)
 
 
 # Research impact statement
@@ -55,24 +55,6 @@ achieve accurate results.
 
 GitHub Copilot was used to assist in writing some of the code for this project. 
 All code was reviewed and edited by the authors.
-
-# Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-![Caption for example figure.\label{fig:workflow}](Fig_1_Workflow.png)
 
 # Acknowledgements
 
