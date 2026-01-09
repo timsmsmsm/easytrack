@@ -36,7 +36,11 @@ bibliography: paper.bib
 
 # Statement of need
 
-
+Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic processes 
+in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how tissues grow 
+and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking in time-lapse
+microscopy images [@Ulcina:2021], current tracking software often requires time-consuming manual parameter tuning to 
+achieve accurate results.
 
 # Software design
 
