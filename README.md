@@ -15,7 +15,7 @@ First, install [napari](https://napari.org/index.html#installation).
 Then, install easytrack via pip:
 
 ```sh 
-python -m pip install napari-napari_easytrack
+python -m pip install napari-easytrack
 ```
 
 To install the latest development version of `EpiTools` clone this repository

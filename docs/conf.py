@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'easytrack'
+project = 'napari-easytrack'
 copyright = '2025, Tim Huygelen'
 author = 'Tim Huygelen'
 release = '0.0.1-alpha'
