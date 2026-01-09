@@ -20,45 +20,59 @@ authors:
     corresponding: true # (This is how to denote the corresponding author)
     affiliation: "1, 2"
 affiliations:
- - name: Laboratory for Molecular Cell Biology, University College London, London, United Kingdom
-   index: 1
- - name: Institute for the Physics of Living Systems, University College London, London, United Kingdom
-   index: 2
- - name: Chan Zuckerberg Initiative, Redwood City, CA, USA
-   index: 3
+  - name: Laboratory for Molecular Cell Biology, University College London, London, United Kingdom
+    index: 1
+  - name: Institute for the Physics of Living Systems, University College London, London, United Kingdom
+    index: 2
+  - name: Chan Zuckerberg Initiative, Redwood City, CA, USA
+    index: 3
 date: 9 Jan 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-
-
 # Statement of need
 
-Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic processes 
-in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how tissues grow 
-and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking in time-lapse
-microscopy images [@Btrack:2017], current tracking software often requires time-consuming manual parameter tuning to 
-achieve accurate results.
+Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic
+processes in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how 
+tissues grow and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking 
+in time-lapse microscopy images [@Btrack:2017], current tracking software often requires time-consuming manual parameter
+tuning to achieve accurate results.
 
 # Software design
 
+`EasyTrack` is implemented as a plugin for napari [@napari:2019] called napari-EasyTrack given its growing bioimage community. 
+The design strategy behind `EasyTrack` is not to reinvent the wheel but to taking advantage of broadly-used open source software to create a more efficient 
+approach to cell tracking.
 
-![Caption for example figure.\label{fig:workflow}](Fig_1_Workflow.png)
+The plugin consists of two widgets: the parameter tuning widget and the tracking widget (Fig. \ref{fig:workflow}). The parameter tuning widget aims
+at obtaining the best sets of parameters of Btrack [@Btrack:2017] using Optuna [@Optuna:2019]. Btrack has X parameters
+which needs to be selected to perform a good cell tracking. Using our Ground Truth (GT) dataset with cells already 
+segmented and tracked, we can obtain the quality of the tracking with traccuracy [@Traccuracy:2023]. Then, we use Optuna
+to minimise the difference between our GT tracking accuracy and Btrack's prediction with a set of parameters. By 
+minimising that difference, we get the optima configuration as a JSON file to track with Btrack a segmented image in time or space.
+`EasyTrack`'s second widget (tracking) uses a configuration file (JSON) to predict a tracking given an input segmented time-lapse 
+or 3D image. We parse the JSON file and use its parameters to run Btrack obtaining a stack of images with their cells tracked 
+alongside their trajectory, which can used to correct them. In both widgets, we provide a button to correct the segmentation
+by removing tiny barely visible objects that can create tracking errors.
 
+![Figure 1. Pipeline of the napari plugin `EasyTrack`.\label{fig:workflow}](Fig_1_Workflow.png "Workflow")
 
 # Research impact statement
 
+In the age of artificial intelligence, there are many tools obtaining segmentation from microscopy images [@Cellpose:2021].
+However, for complex 3D segmentations a tracking step is required [@Paci:2025]. Also, we were missing a tracking algorithm 
+in EpiTools [@EpiTools:2025] with a simplified graphical user interface. E
 
 # AI Usage Policy
 
-GitHub Copilot was used to assist in writing some of the code for this project. 
+GitHub Copilot was used to assist in writing some of the code for this project.
 All code was reviewed and edited by the authors.
 
 # Acknowledgements
 
-We acknowledge contributions
+We acknowledge contributions...
 
 # References
 
