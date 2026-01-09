@@ -502,3 +502,63 @@ def get_cleaning_stats(original, cleaned):
         'cleaned_labels': len(np.unique(cleaned)) - 1,
     }
     return stats
+
+def remove_small_labels(segmentation, min_pixels=3, verbose=True):
+    """
+    Remove labels that have fewer than min_pixels across the entire time series.
+    Reassigns their pixels to neighboring labels.
+    
+    Args:
+        segmentation: 3D array (T, Y, X) or 4D array (T, Z, Y, X) with integer labels
+        min_pixels: Minimum total pixels/voxels for a label to keep (default: 3)
+        verbose: If True, print progress information
+        
+    Returns:
+        Cleaned segmentation with same shape and dtype
+    """
+    cleaned = segmentation.copy()
+    is_3d = (segmentation.ndim == 4)
+    
+    if verbose:
+        print("\n" + "="*60)
+        print("REMOVING SMALL LABELS")
+        print(f"Minimum size threshold: {min_pixels} {'voxels' if is_3d else 'pixels'}")
+        print("="*60)
+    
+    # Get all unique labels and their total sizes across time
+    unique_labels = np.unique(cleaned)
+    unique_labels = unique_labels[unique_labels > 0]
+    
+    labels_to_remove = []
+    for label in unique_labels:
+        total_size = np.sum(cleaned == label)
+        if total_size < min_pixels:
+            labels_to_remove.append(label)
+    
+    if verbose:
+        print(f"Found {len(labels_to_remove)} labels below threshold")
+    
+    # Remove each small label by reassigning to neighbors
+    structure = ndimage.generate_binary_structure(cleaned[0].ndim, connectivity=1)
+    total_reassigned = 0
+    
+    for label in labels_to_remove:
+        label_mask = (cleaned == label)
+        
+        # Process each timepoint separately
+        for t in range(cleaned.shape[0]):
+            frame_mask = label_mask[t]
+            if not np.any(frame_mask):
+                continue
+            
+            neighbor = _find_neighbor_label(frame_mask, cleaned[t], label, structure)
+            cleaned[t][frame_mask] = neighbor
+            total_reassigned += np.sum(frame_mask)
+    
+    if verbose:
+        unit = "voxels" if is_3d else "pixels"
+        print(f"Removed {len(labels_to_remove)} labels")
+        print(f"Reassigned {total_reassigned} {unit}")
+        print("="*60 + "\n")
+    
+    return cleaned

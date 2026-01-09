@@ -28,7 +28,7 @@ from qtpy.QtCore import QTimer, Qt
 from ..analysis.optim_backend import prepare_layer_for_optimization
 from ..analysis.optim_manager import OptimizationManager
 from ..analysis.tracking import run_tracking_with_params
-from ..utils import clean_segmentation, get_cleaning_stats
+from ..utils import clean_segmentation, get_cleaning_stats, remove_small_labels
 
 
 class BtrackOptimizationWidget(Container):
@@ -212,6 +212,26 @@ class BtrackOptimizationWidget(Container):
             "neighboring labels. Useful to run before optimization as btrack "
             "cannot handle disconnected fragments well."
         )
+
+        self.remove_small_button = PushButton(text="🗑️ Remove Small Labels")
+        self.remove_small_button.clicked.connect(self._on_remove_small_clicked)
+        self.remove_small_button.tooltip = (
+            "Remove labels with fewer than the specified number of pixels.\n\n"
+            "Reassigns their pixels to neighboring labels. Useful for removing "
+            "small artifacts or debris from segmentation."
+        )
+        
+        self.min_pixels_spinbox = create_widget(
+            value=3,
+            annotation=int,
+            label="Min size to keep",  # or "Keep labels with ≥"
+            widget_type="SpinBox",
+            options={
+                "min": 1,
+                "max": 1000,
+                "tooltip": "Labels with fewer pixels than this will be reassigned"
+            }
+        )
         
         self.view_dashboard_button = PushButton(text="📊 View Dashboard")
         self.view_dashboard_button.clicked.connect(self._on_view_dashboard_clicked)
@@ -239,6 +259,8 @@ class BtrackOptimizationWidget(Container):
             self.start_button,
             self.cancel_button,
             self.clean_button,
+            self.remove_small_button, 
+            self.min_pixels_spinbox,  
             self.view_dashboard_button,
         ])
     
@@ -547,6 +569,53 @@ class BtrackOptimizationWidget(Container):
             self.results_info_label.value = f"<font color='red'>Error: {str(e)}</font>"
             print(f"\n❌ Error during cleaning: {e}")
             traceback.print_exc()
+
+    def _on_remove_small_clicked(self):
+            """Handle remove small labels button click."""
+            # Get selected layer
+            layer = self.layer_selector.value
+            
+            if layer is None:
+                self.status_label.value = "❌ Please select a layer first"
+                return
+            
+            segmentation = layer.data
+            
+            # Validate it's 3D or 4D
+            if segmentation.ndim not in [3, 4]:
+                self.status_label.value = f"❌ Must be 3D (T,Y,X) or 4D (T,Z,Y,X), got {segmentation.ndim}D"
+                return
+            
+            min_pixels = self.min_pixels_spinbox.value
+            self.status_label.value = f"🔄 Removing labels < {min_pixels} pixels..."
+            
+            try:
+                # Remove small labels
+                cleaned_seg = remove_small_labels(segmentation, min_pixels=min_pixels, verbose=True)
+                
+                # Add as new layer
+                layer_name = f"{layer.name}_min{min_pixels}"
+                self.viewer.add_labels(cleaned_seg, name=layer_name)
+                
+                # Get stats
+                original_labels = len(np.unique(segmentation)) - 1
+                cleaned_labels = len(np.unique(cleaned_seg)) - 1
+                removed_count = original_labels - cleaned_labels
+                
+                # Update status
+                self.status_label.value = "✅ Small labels removed!"
+                self.results_info_label.value = f"Removed {removed_count} small labels"
+                
+                print(f"\n✅ Created filtered layer: {layer_name}")
+                print(f"   Original labels: {original_labels}")
+                print(f"   Remaining labels: {cleaned_labels}")
+                print(f"   Removed: {removed_count}")
+                
+            except Exception as e:
+                self.status_label.value = "❌ Removal failed"
+                self.results_info_label.value = f"<font color='red'>Error: {str(e)}</font>"
+                print(f"\n❌ Error removing small labels: {e}")
+                traceback.print_exc()
     
     def _on_apply_tracking_clicked(self):
         """Handle apply tracking button click."""
