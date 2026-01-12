@@ -9,15 +9,18 @@ tags:
   - bioimaging
 authors:
   - name: Tim Huygelen
-    orcid: 0000-0000-0000-0000
+    orcid: 0009-0007-0026-4531
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
   - name: Alan Lowe
+    orcid: 0000-0002-0558-3597
     affiliation: 3
   - name: Yanlan Mao
     corresponding: true # (This is how to denote the corresponding author)
+    orcid: 0000-0002-8722-4992
     affiliation: "1, 2"
   - name: Pablo Vicente-Munuera
     corresponding: true # (This is how to denote the corresponding author)
+    orcid: 0000-0001-5402-7637
     affiliation: "1, 2"
 affiliations:
   - name: Laboratory for Molecular Cell Biology, University College London, London, United Kingdom
