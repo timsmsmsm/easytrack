@@ -54,7 +54,7 @@ def scale_matrix(matrix: np.ndarray, original_sigma: float, new_sigma: float) ->
 def run_tracking_core(
     segmentation: np.ndarray,
     params: Dict[str, Any],
-    base_config_path: str = 'cell_config.json'
+    base_config_path: str = 'configs/cell_config.json.json'
 ) -> Tuple[np.ndarray, list, Dict, np.ndarray, Dict, Any]:
     """
     Core tracking function using the optimization approach.
@@ -64,7 +64,7 @@ def run_tracking_core(
     Args:
         segmentation: 3D or 4D array (T,Y,X) or (T,Z,Y,X)
         params: Parameter dictionary
-        base_config_path: Path to cell_config.json
+        base_config_path: Path to configs/cell_config.json.json
         
     Returns:
         Tuple of (tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph)
@@ -217,7 +217,7 @@ def run_tracking_with_params(
     segmentation: np.ndarray,
     params: Dict[str, Any],
     voxel_scale: Tuple[float, float, float] = (1.0, 1.0, 1.0),
-    base_config_path: str = 'cell_config.json',
+    base_config_path: str = 'configs/cell_config.json.json',
     return_napari: bool = False
 ) -> Tuple:
     """
@@ -227,7 +227,7 @@ def run_tracking_with_params(
         segmentation: 3D or 4D array
         params: Parameter dictionary
         voxel_scale: Voxel scaling (currently unused but kept for compatibility)
-        base_config_path: Path to cell_config.json
+        base_config_path: Path to configs/cell_config.json.json
         return_napari: If True, returns napari tracks data as well
         
     Returns:
@@ -263,7 +263,7 @@ def run_tracking_process(
     params: Dict[str, Any],
     progress_queue: Queue,
     status_flag: Value,
-    base_config_path: str = 'cell_config.json'
+    base_config_path: str = 'configs/cell_config.json.json'
 ):
     """
     Run tracking in separate process with file-based I/O.
@@ -435,7 +435,7 @@ class TrackingManager:
         on_progress: Optional[Callable] = None,
         on_finished: Optional[Callable] = None,
         on_error: Optional[Callable] = None,
-        base_config_path: str = 'cell_config.json'
+        base_config_path: str = 'configs/cell_config.json.json'
     ) -> TrackingMonitor:
         """
         Start tracking in background process.
@@ -446,7 +446,7 @@ class TrackingManager:
             on_progress: Callback for progress (str)
             on_finished: Callback for completion (tracked_seg, track_info, napari_data, napari_properties, napari_graph)
             on_error: Callback for errors (error_msg)
-            base_config_path: Path to cell_config.json
+            base_config_path: Path to configs/cell_config.json.json
             
         Returns:
             TrackingMonitor that can be cancelled
