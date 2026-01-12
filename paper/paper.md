@@ -89,5 +89,3 @@ All code was reviewed and edited by the authors.
 We thank the Mao lab for giving useful feedback of the graphical user interface and testing `EasyTrack`.
 
 # References
-
-\bibliography{paper}
