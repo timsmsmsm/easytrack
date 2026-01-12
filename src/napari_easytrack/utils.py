@@ -505,12 +505,15 @@ def get_cleaning_stats(original, cleaned):
 
 def remove_small_labels(segmentation, min_pixels=3, verbose=True):
     """
-    Remove labels that have fewer than min_pixels across the entire time series.
+    Remove labels that have fewer than min_pixels in each timepoint.
+    For 4D data (T, Z, Y, X): checks size per 3D volume at each timepoint
+    For 3D data (T, Y, X): checks size per 2D slice at each timepoint
+    
     Reassigns their pixels to neighboring labels.
     
     Args:
         segmentation: 3D array (T, Y, X) or 4D array (T, Z, Y, X) with integer labels
-        min_pixels: Minimum total pixels/voxels for a label to keep (default: 3)
+        min_pixels: Minimum pixels/voxels for a label to keep per timepoint (default: 3)
         verbose: If True, print progress information
         
     Returns:
@@ -518,47 +521,53 @@ def remove_small_labels(segmentation, min_pixels=3, verbose=True):
     """
     cleaned = segmentation.copy()
     is_3d = (segmentation.ndim == 4)
+    n_timepoints = segmentation.shape[0]
     
     if verbose:
         print("\n" + "="*60)
-        print("REMOVING SMALL LABELS")
-        print(f"Minimum size threshold: {min_pixels} {'voxels' if is_3d else 'pixels'}")
+        print("REMOVING SMALL LABELS (PER TIMEPOINT)")
+        print(f"Minimum size threshold: {min_pixels} {'voxels' if is_3d else 'pixels'} per timepoint")
         print("="*60)
     
-    # Get all unique labels and their total sizes across time
-    unique_labels = np.unique(cleaned)
-    unique_labels = unique_labels[unique_labels > 0]
-    
-    labels_to_remove = []
-    for label in unique_labels:
-        total_size = np.sum(cleaned == label)
-        if total_size < min_pixels:
-            labels_to_remove.append(label)
-    
-    if verbose:
-        print(f"Found {len(labels_to_remove)} labels below threshold")
-    
-    # Remove each small label by reassigning to neighbors
     structure = ndimage.generate_binary_structure(cleaned[0].ndim, connectivity=1)
     total_reassigned = 0
+    total_labels_removed = 0
     
-    for label in labels_to_remove:
-        label_mask = (cleaned == label)
+    # Process each timepoint independently
+    for t in range(n_timepoints):
+        frame = cleaned[t]
         
-        # Process each timepoint separately
-        for t in range(cleaned.shape[0]):
-            frame_mask = label_mask[t]
-            if not np.any(frame_mask):
-                continue
+        # Get unique labels in this timepoint
+        unique_labels = np.unique(frame)
+        unique_labels = unique_labels[unique_labels > 0]
+        
+        labels_removed_this_frame = 0
+        pixels_reassigned_this_frame = 0
+        
+        for label in unique_labels:
+            label_mask = (frame == label)
+            size = np.sum(label_mask)
             
-            neighbor = _find_neighbor_label(frame_mask, cleaned[t], label, structure)
-            cleaned[t][frame_mask] = neighbor
-            total_reassigned += np.sum(frame_mask)
+            # If this label is too small in this timepoint, remove it
+            if size < min_pixels:
+                neighbor = _find_neighbor_label(label_mask, frame, label, structure)
+                frame[label_mask] = neighbor
+                pixels_reassigned_this_frame += size
+                labels_removed_this_frame += 1
+        
+        if verbose and labels_removed_this_frame > 0:
+            timepoint_name = "Timepoint" if is_3d else "Frame"
+            unit = "voxels" if is_3d else "pixels"
+            print(f"  {timepoint_name} {t}: removed {labels_removed_this_frame} small labels, "
+                  f"reassigned {pixels_reassigned_this_frame} {unit}")
+        
+        total_labels_removed += labels_removed_this_frame
+        total_reassigned += pixels_reassigned_this_frame
     
     if verbose:
         unit = "voxels" if is_3d else "pixels"
-        print(f"Removed {len(labels_to_remove)} labels")
-        print(f"Reassigned {total_reassigned} {unit}")
+        print(f"\nTotal labels removed across all timepoints: {total_labels_removed}")
+        print(f"Total {unit} reassigned: {total_reassigned}")
         print("="*60 + "\n")
     
     return cleaned
