@@ -33,6 +33,57 @@ import btrack
 from btrack import utils, config
 
 
+# ============= CONFIG PATH RESOLUTION =============
+
+def get_default_config_path() -> str:
+    """
+    Get the absolute path to the default cell_config.json file.
+    Works correctly whether running from source or installed package.
+    
+    Returns:
+        Absolute path to cell_config.json
+    """
+    try:
+        # Try importlib.resources (Python 3.9+)
+        from importlib import resources
+        
+        if hasattr(resources, 'files'):
+            # Python 3.9+
+            config_file = resources.files('napari_easytrack').joinpath('configs/cell_config.json')
+            
+            # Need to handle Traversable -> Path conversion
+            if hasattr(config_file, '__fspath__'):
+                # Python 3.12+ returns a Path-like directly
+                return str(config_file)
+            else:
+                # Python 3.9-3.11 needs as_file context manager
+                from importlib.resources import as_file
+                with as_file(config_file) as path:
+                    # For spawned processes, we need a persistent path
+                    # Copy to temp location that persists
+                    temp_config = Path(tempfile.gettempdir()) / 'napari_easytrack_cell_config.json'
+                    if not temp_config.exists() or temp_config.stat().st_size == 0:
+                        shutil.copy2(path, temp_config)
+                    return str(temp_config)
+        else:
+            # Older Python - use pkg_resources
+            import pkg_resources
+            return pkg_resources.resource_filename('napari_easytrack', 'configs/cell_config.json')
+            
+    except Exception as e:
+        # Fallback: try relative to this file (development mode)
+        fallback_path = Path(__file__).parent.parent / 'configs' / 'cell_config.json'
+        if fallback_path.exists():
+            print(f"[CONFIG] Using development path: {fallback_path}")
+            return str(fallback_path.resolve())
+        
+        raise FileNotFoundError(
+            f"Could not locate cell_config.json. "
+            f"Tried package resources and {fallback_path}. "
+            f"Original error: {e}"
+        )
+
+
 # ============= MATRIX SCALING =============
 
 def scale_matrix(matrix: np.ndarray, original_sigma: float, new_sigma: float) -> np.ndarray:
@@ -54,7 +105,7 @@ def scale_matrix(matrix: np.ndarray, original_sigma: float, new_sigma: float) ->
 def run_tracking_core(
     segmentation: np.ndarray,
     params: Dict[str, Any],
-    base_config_path: str = 'configs/cell_config.json.json'
+    base_config_path: Optional[str] = None
 ) -> Tuple[np.ndarray, list, Dict, np.ndarray, Dict, Any]:
     """
     Core tracking function using the optimization approach.
@@ -64,12 +115,26 @@ def run_tracking_core(
     Args:
         segmentation: 3D or 4D array (T,Y,X) or (T,Z,Y,X)
         params: Parameter dictionary
-        base_config_path: Path to configs/cell_config.json.json
+        base_config_path: Path to config file. If None, uses package default.
         
     Returns:
         Tuple of (tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph)
     """
     print(f"[TRACKING] Starting with segmentation shape: {segmentation.shape}")
+    
+    # Use default config if none provided
+    if base_config_path is None:
+        base_config_path = get_default_config_path()
+    
+    # Ensure absolute path
+    config_path = Path(base_config_path)
+    if not config_path.is_absolute():
+        config_path = config_path.resolve()
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    
+    base_config_path = str(config_path)
     
     # Ensure correct data type
     segmentation = np.ascontiguousarray(
@@ -217,7 +282,7 @@ def run_tracking_with_params(
     segmentation: np.ndarray,
     params: Dict[str, Any],
     voxel_scale: Tuple[float, float, float] = (1.0, 1.0, 1.0),
-    base_config_path: str = 'configs/cell_config.json.json',
+    base_config_path: Optional[str] = None,
     return_napari: bool = False
 ) -> Tuple:
     """
@@ -227,7 +292,7 @@ def run_tracking_with_params(
         segmentation: 3D or 4D array
         params: Parameter dictionary
         voxel_scale: Voxel scaling (currently unused but kept for compatibility)
-        base_config_path: Path to configs/cell_config.json.json
+        base_config_path: Path to config file. If None, uses package default.
         return_napari: If True, returns napari tracks data as well
         
     Returns:
@@ -237,6 +302,10 @@ def run_tracking_with_params(
     print("\n" + "=" * 60)
     print("RUNNING TRACKING WITH OPTIMIZED PARAMETERS")
     print("=" * 60)
+    
+    # Use default if not provided
+    if base_config_path is None:
+        base_config_path = get_default_config_path()
     
     tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph = run_tracking_core(
         segmentation, params, base_config_path
@@ -263,13 +332,18 @@ def run_tracking_process(
     params: Dict[str, Any],
     progress_queue: Queue,
     status_flag: Value,
-    base_config_path: str = 'configs/cell_config.json.json'
+    base_config_path: Optional[str] = None
 ):
     """
     Run tracking in separate process with file-based I/O.
     """
     try:
         print(f"[CHILD {os.getpid()}] Process started")
+        
+        # Resolve config path in child process
+        if base_config_path is None:
+            base_config_path = get_default_config_path()
+        
         progress_queue.put("Loading segmentation...")
         
         # Load segmentation
@@ -435,7 +509,7 @@ class TrackingManager:
         on_progress: Optional[Callable] = None,
         on_finished: Optional[Callable] = None,
         on_error: Optional[Callable] = None,
-        base_config_path: str = 'configs/cell_config.json.json'
+        base_config_path: Optional[str] = None
     ) -> TrackingMonitor:
         """
         Start tracking in background process.
@@ -446,11 +520,27 @@ class TrackingManager:
             on_progress: Callback for progress (str)
             on_finished: Callback for completion (tracked_seg, track_info, napari_data, napari_properties, napari_graph)
             on_error: Callback for errors (error_msg)
-            base_config_path: Path to configs/cell_config.json.json
+            base_config_path: Path to config file. If None, uses package default.
             
         Returns:
             TrackingMonitor that can be cancelled
         """
+        # Resolve config path BEFORE spawning process
+        if base_config_path is None:
+            base_config_path = get_default_config_path()
+        else:
+            # Ensure it's absolute
+            config_path = Path(base_config_path)
+            if not config_path.is_absolute():
+                config_path = config_path.resolve()
+            base_config_path = str(config_path)
+        
+        # Verify it exists
+        if not Path(base_config_path).exists():
+            raise FileNotFoundError(f"Config file not found: {base_config_path}")
+        
+        print(f"[MAIN] Using config: {base_config_path}")
+        
         # Create temp directory
         temp_dir = tempfile.mkdtemp(prefix='btrack_')
         input_file = Path(temp_dir) / 'input_seg.npy'
