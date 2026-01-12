@@ -72,10 +72,10 @@ by removing tiny barely visible objects that can create tracking errors.
 # Research impact statement
 
 In the age of artificial intelligence, there are many tools obtaining segmentation from microscopy images [@Cellpose:2021].
-However, for complex 3D segmentations a tracking step is required to get an accurate result [@Paci:2025]. 
-Also, we were missing a tracking algorithm in napari-EpiTools [@EpiTools:2025] with a simplified graphical user 
+However, for complex 3D segmentations a tracking step is required to get an accurate result [@Paci:2025]. We developed
+napari-EpiTools [@EpiTools:2025] a few years ago, and it was missing a tracking algorithm with a simplified graphical user 
 interface. EpiTools has already integrated `EasyTrack` allowing EpiTools' user base to use it. In addition, 
-Btrack is one of the most popular and robust plugins in napari, but it is specialised for packed tissues, like EpiTools is. 
+Btrack is one of the most popular and robust plugins in napari, but it is not specialised for packed tissues, like EpiTools is. 
 Therefore, even though `EasyTrack` is in its early stages, it fills
 a gap in the napari-community for easy to use tracking tools, particularly for packed tissues and 3D structures.
 
@@ -86,7 +86,7 @@ All code was reviewed and edited by the authors.
 
 # Acknowledgements
 
-We acknowledge contributions...
+We thank the Mao lab for giving useful feedback of the graphical user interface and testing `EasyTrack`.
 
 # References
 
