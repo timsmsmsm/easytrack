@@ -1,4 +1,9 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18200898.svg)](https://doi.org/10.5281/zenodo.18200898)
+[![Licence](https://img.shields.io/pypi/l/napari-easytrack.svg?color=green)](https://raw.githubusercontent.com/timsmsmsm/easytrack/main/LICENSE.md)
+[![PyPI](https://img.shields.io/pypi/v/napari-easytrack.svg?color=green)](https://pypi.org/project/napari-easytrack)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-easytrack.svg?color=green)](https://python.org)
+[![Documentation](https://readthedocs.org/projects/napari-easytrack/badge/?version=latest)](https://napari-easytrack.readthedocs.io/en/latest/?badge=latest)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-easytrack)](https://napari-hub.org/plugins/napari-easytrack)
 
 # Welcome to easytrack!
 
