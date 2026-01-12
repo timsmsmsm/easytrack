@@ -35,13 +35,20 @@ bibliography: paper.bib
 
 # Summary
 
+Life is in constant movement, even microscopic bodies like cells. To understand in a quantitative way, cellular dynamics, 
+or how cells move around, we analyse images taken with microscopes where we can highlight cellular structures like their
+membranes or nuclei. For that, the bioimage community has developed a series of algorithms to correctly track cells in
+different environments, but they are complex. `EasyTrack` aims at democratising the use of tracking algorithms by 
+reducing the complexity of one of the algorithms providing an easy-to-use graphical interface. 
+
 # Statement of need
 
 Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic
 processes in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how 
 tissues grow and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking 
 in time-lapse microscopy images [@Btrack:2017], current tracking software often requires time-consuming manual parameter
-tuning to achieve accurate results.
+tuning to achieve accurate results. Here, we developed `EasyTrack` to automatically obtain the best Btrack parameters 
+allowing the user to obtain truthful tracked images in a faster and more reliable way.
 
 # Software design
 
@@ -65,10 +72,11 @@ by removing tiny barely visible objects that can create tracking errors.
 # Research impact statement
 
 In the age of artificial intelligence, there are many tools obtaining segmentation from microscopy images [@Cellpose:2021].
-However, for complex 3D segmentations a tracking step is required [@Paci:2025]. Also, we were missing a tracking algorithm 
-in napari-EpiTools [@EpiTools:2025] with a simplified graphical user interface. EpiTools has already integrated `EasyTrack` allowing
-EpiTools' user base to use it. In addition, Btrack is one of the most popular and robust plugins in napari, but it is 
-specialised for packed tissues, like EpiTools is. Therefore, even though `EasyTrack` is in its early stages, it fills
+However, for complex 3D segmentations a tracking step is required to get an accurate result [@Paci:2025]. 
+Also, we were missing a tracking algorithm in napari-EpiTools [@EpiTools:2025] with a simplified graphical user 
+interface. EpiTools has already integrated `EasyTrack` allowing EpiTools' user base to use it. In addition, 
+Btrack is one of the most popular and robust plugins in napari, but it is specialised for packed tissues, like EpiTools is. 
+Therefore, even though `EasyTrack` is in its early stages, it fills
 a gap in the napari-community for easy to use tracking tools, particularly for packed tissues and 3D structures.
 
 # AI Usage Policy
