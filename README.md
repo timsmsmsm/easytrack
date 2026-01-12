@@ -1,3 +1,6 @@
+https://doi.org/10.5281/zenodo.18200898
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18200898.svg)](https://doi.org/10.5281/zenodo.18200898)
+
 # Welcome to easytrack!
 
 easytrack is a napari plugin.
