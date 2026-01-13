@@ -94,7 +94,7 @@ class BtrackPresetWidget(Container):
         """Build the magicgui widget."""
         
         # Header
-        header = Label(value="<h2>Btrack Parameter Presets</h2>")
+        header = Label(value="<h2>Tracking Presets</h2>")
         
         # Preset selector
         preset_names = list(self.presets.keys())
