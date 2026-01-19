@@ -69,6 +69,7 @@ docs = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib-video",
     "types-pytz",
+    "sphinx-rtd-theme",
 ]
 testing = [
     "pytest",
