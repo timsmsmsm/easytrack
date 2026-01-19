@@ -1,4 +1,5 @@
-"""
+"""Utilities --- :mod: `napari_easytrack:utils`
+========================================================
 Utilities for btrack Tracking
 
 Data Loading:

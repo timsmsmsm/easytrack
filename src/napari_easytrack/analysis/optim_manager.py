@@ -1,4 +1,5 @@
-"""
+"""Optimization manager --- :mod:`napari_easytrack.analysis.optim_manager`
+=========================================================================
 Optimization manager for running btrack parameter optimization in background.
 
 This module handles:

@@ -6,11 +6,10 @@ Python API
 ==========
 
 .. toctree::
-    :maxdepth: 1
 
     tracking
+    presets
+    utils
     optim_backend
     optim_pipeline
     optim_manager
-    presets
-    utils
