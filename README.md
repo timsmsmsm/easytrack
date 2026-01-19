@@ -87,3 +87,18 @@ your entire dataset, selecting "Custom JSON" in the presets dropdown menu.
 If you encounter any problems, please
 [file an issue](https://github.com/timsmsmsm/easytrack/issues) along with a
 detailed description.
+
+## Citation
+
+If you use `napari-easytrack` in your research, please cite the following paper:
+
+```bibtex
+@software{Huygelen_napari-easytrack,
+    author = {Huygelen, Tim and Lowe, Alan and Mao, Yanlan and Vicente-Munuera, Pablo},
+    license = {MIT},
+    title = {{napari-easytrack}},
+    url = {https://github.com/timsmsmsm/easytrack},
+    year = {2026},
+    doi = {10.5281/zenodo.18200898},
+}
+```
