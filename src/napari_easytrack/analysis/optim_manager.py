@@ -25,7 +25,32 @@ class OptimizationSignals(QObject):
 
 
 class OptimizationManager:
-    """Manages background optimization and progress monitoring."""
+    """
+    Manages background optimisation and progress monitoring.
+
+    This class uses Optuna for optimisation and runs the process in a separate thread.
+
+    Attributes:
+        db_path: Path to SQLite database for Optuna studies
+        db_url: SQLAlchemy database URL
+        signals: Qt signals for communication
+        current_thread: Thread object for running optimisation
+        current_study_name: Name of the current study
+        is_running: Whether an optimisation is currently running
+        should_cancel: Flag to indicate cancellation request
+        start_time: Timestamp when optimisation started
+        study: Optuna Study object after completion
+
+    Methods:
+        start_optimization: Start optimisation in background thread
+        get_progress: Get current progress of optimisation
+        cancel_current: Cancel currently running optimisation
+        is_complete: Check if optimisation has completed
+        get_best_trials: Retrieve best trials from completed study
+        study_exists: Check if a study exists in the database
+        get_study_summary: Get summary statistics for a study
+        cleanup: Clean up connections and state
+    """
     
     def __init__(self, db_path: str = "btrack.db"):
         """
