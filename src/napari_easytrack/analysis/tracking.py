@@ -1,4 +1,5 @@
-"""
+"""Tracking optimization and preset --- :mod:`napari_easytrack.analysis.tracking`
+=========================================================================
 Unified tracking module for both optimization and preset widgets.
 
 Provides:
@@ -334,8 +335,18 @@ def run_tracking_process(
     status_flag: Value,
     base_config_path: Optional[str] = None
 ):
-    """
-    Run tracking in separate process with file-based I/O.
+    """Run tracking in separate process with file-based I/O.
+
+    Args:
+        input_file: Path to input segmentation .npy file
+        output_file: Path to output tracked segmentation .npy file
+        params: Parameter dictionary
+        progress_queue: Queue for progress messages
+        status_flag: Shared Value for status (0=running, 1=success, - 1=failure)
+        base_config_path: Path to config file. If None, uses package default.
+
+    Returns:
+        None
     """
     try:
         print(f"[CHILD {os.getpid()}] Process started")

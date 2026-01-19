@@ -1,4 +1,5 @@
-"""
+"""Presets --- :mod:`napari_easytrack.presets`
+=========================================================================
 Configuration and preset management for btrack tracking.
 
 Handles:

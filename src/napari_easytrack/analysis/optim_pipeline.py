@@ -1,3 +1,8 @@
+"""Optimization pipeline  --- :mod:`napari_easytrack.analysis.optim_pipeline`
+================================================================================
+This module contains functions for cell tracking using Bayesian Optimization with timeout handling.
+"""
+
 import gc
 import json
 from multiprocessing import Process, Pipe
