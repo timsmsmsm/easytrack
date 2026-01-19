@@ -41,10 +41,7 @@ dependencies = [
     "qtpy",
     "scipy",
     "scikit-image",
-    "napari",
     "magicgui",
-    "qtpy",
-    "btrack",
     "optuna",
     "joblib",
     "traccuracy",
@@ -70,6 +67,7 @@ docs = [
     "sphinxcontrib-video",
     "types-pytz",
     "sphinx-rtd-theme",
+    "pyqt5"
 ]
 testing = [
     "pytest",
