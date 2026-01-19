@@ -10,6 +10,6 @@ contributions:
       python_name: napari_easytrack.widgets.optim_widget:BtrackOptimizationWidget
   widgets:
     - command: napari-easytrack.preset_widget
-      display_name: Presets
+      display_name: Tracking
     - command: napari-easytrack.optimization_widget
-      display_name: Tuning
+      display_name: Parameter Tuning
