@@ -5,9 +5,21 @@
 [![Documentation](https://readthedocs.org/projects/napari-easytrack/badge/?version=latest)](https://napari-easytrack.readthedocs.io/en/latest/?badge=latest)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-easytrack)](https://napari-hub.org/plugins/napari-easytrack)
 
-# Welcome to easytrack!
+# napari-easytrack
 
-easytrack is a napari plugin.
+`napari-easytrack` is a napari plugin for automated parameter tuning in cell tracking. It optimises
+[`btrack`](https://github.com/quantumjot/btrack) obtaining a set of optimal tracking parameters for a dataset. Using
+that optimal set of parameters, `napari-easytrack` can then track the cells in the dataset,
+improving tracking accuracy and reducing manual correction time.
+
+`napari-easytrack` provides two widgets in napari:
+
+1. An **optimization widget** that optimizes tracking parameters based on a small subset of manually annotated
+   ground-truth data.
+2. A **tracking widget** that uses the optimized parameters to track the entire dataset. Here, we provide different
+   tracking presets so users can choose the one that best fits their data without optimization. If no preset fits the
+   data,
+   users should try to optimize the parameters first with the **optimization widget**.
 
 ## Installation
 
@@ -31,6 +43,44 @@ and run
 ```sh
 python -m pip install -e .
 ```
+
+## Usage
+
+To use `napari-easytrack`, first launch napari:
+
+```sh
+napari
+```
+
+Once in napari, click on the "Plugins" menu, then select "napari-easytrack" and click "Tracking" to open the tracking
+widget. We recommend starting with the `Tracking` widget to test the plugin with the provided presets.
+
+### Tracking Widget
+
+Once in the `Tracking` widget, you can select one of the presets from the dropdown menu:
+
+- `Epithelial cells`: for tracking epithelial cells in 2D+time datasets.
+- `Epithelial cells (Z-traacking)`: for tracking epithelial cells in 3D (space) datasets.
+- `Custom JSON`: if none of the presets fit your data, you can provide a custom JSON file with tracking parameters
+  optimised for your dataset. You can obtain this JSON file by first using the `Parameter tuning` widget.
+
+Once you have selected your presets, select the "Segmentation Layer" to apply the tracking to and click "Apply
+Tracking".
+We also provide, in case it is needed, a "Clean Segmentation" and "Remove Small Objects" to improve the provided
+segmentation. In addition, you can also save your own configuration of parameters as a JSON file for future use by
+clicking on "Save Config (JSON)".
+
+### Parameter tuning Widget
+
+To optimise your own tracking parameters specific to your dataset, you require to provide some ground-truth data with
+cells segmented and tracked. You will select this dataset as "Ground Truth Layer" in the `Parameter tuning` widget. As a
+first trial, we recommend using a small subset of your data (e.g., 10-20 frames) with a few cells tracked (e.g., 5-10
+cells).
+With all the default parameters, click on "Start Optimization" to begin the optimisation process. You can cancel the
+process at any time by clicking on "Stop Optimization". Once the optimisation is finished, you can save the optimal
+parameters as a JSON file by clicking on "Save Config". You can then use this JSON file in the `Tracking` widget to
+track
+your entire dataset, selecting "Custom JSON" in the presets dropdown menu.
 
 ## Issues
 
