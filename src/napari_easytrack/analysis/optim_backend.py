@@ -1,4 +1,4 @@
-"""Optimization backend --- :mod: `napari_easytrack.analysis.optim_backend`
+"""Optimization backend --- :mod:`napari_easytrack.analysis.optim_backend`
 =========================================================================
 Backend for preparing napari Labels layers for btrack optimization.
 
