@@ -7,19 +7,21 @@ tags:
   - image analysis
   - computational biology
   - bioimaging
+  - Bayesian optimisation
+  - parameter tuning
 authors:
   - name: Tim Huygelen
     orcid: 0009-0007-0026-4531
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
+    affiliation: "1, 2"
   - name: Alan Lowe
     orcid: 0000-0002-0558-3597
     affiliation: 3
   - name: Yanlan Mao
-    corresponding: true # (This is how to denote the corresponding author)
+    corresponding: true
     orcid: 0000-0002-8722-4992
     affiliation: "1, 2"
   - name: Pablo Vicente-Munuera
-    corresponding: true # (This is how to denote the corresponding author)
+    corresponding: true
     orcid: 0000-0001-5402-7637
     affiliation: "1, 2"
 affiliations:
@@ -35,57 +37,52 @@ bibliography: paper.bib
 
 # Summary
 
-Life is in constant movement, even microscopic bodies like cells. To understand in a quantitative way, cellular dynamics, 
-or how cells move around, we analyse images taken with microscopes where we can highlight cellular structures like their
-membranes or nuclei. For that, the bioimage community has developed a series of algorithms to correctly track cells in
-different environments, but they tend to fall into two categories: general use with low overall accuracy, or potentially high accuracy tracking software that requires tedious parameter tuning or other user input to work. `easytrack` aims at democratising the use of tracking algorithms by 
-simplifying an algorithm from the latter category providing an easy-to-use graphical interface that allows users to drag and drop data and click a few buttons to run highly accurate tracking.
+Cellular dynamics—how cells move, divide, and interact—are fundamental to understanding biological processes from tissue development to disease progression. Time-lapse microscopy enables researchers to capture these processes, but extracting quantitative information requires accurately tracking individual cells across image sequences. Current cell tracking software falls into two categories: general-use tools with modest accuracy, or high-performance algorithms like btrack [@btrack:2017; @btrack:2021] that require extensive manual parameter tuning. This manual tuning is labour-intensive, requires expertise, and often needs repetition for different datasets or experimental conditions. `easytrack` democratises access to high-accuracy cell tracking by automating the parameter optimisation process through a user-friendly napari plugin interface.
 
 # Statement of need
 
-Cell tracking is the task of following individual cells over time and space, essential for understanding dynamic
-processes in cell biology. For instance, cell tracking can reveal how tissues heal themselves [@Tetley:2019], or how 
-tissues grow and develop [@Valon:2021]. Despite significant advances in computational tools for automated cell tracking 
-in time-lapse microscopy images [@btrack:2017], current tracking software often requires time-consuming manual parameter
-tuning to achieve accurate results. Here, we developed `easytrack` to automatically obtain the best btrack parameters 
-allowing the user to obtain truthful tracked images in a faster and more reliable way.
+Cell tracking (following individual cells through time and space) is essential for quantifying dynamic cellular behaviours such as migration, division, and morphological changes. These measurements underpin research into tissue healing [@Tetley:2019], developmental biology [@Valon:2021], and cancer progression [@Hong:2016]. Despite advances in computational methods [@Ulman:2017; @Maska:2023], many tracking algorithms require careful tuning of multiple parameters to achieve accurate results [@Loffler:2021; @Chenouard:2014]. For btrack, a Bayesian cell tracking algorithm, this involves configuring 18 parameters across its motion and hypothesis models.
 
-# Software design
+The lack of accessible parameter optimisation tools creates a barrier between technological capability and practical application. Researchers often resort to default parameters or limited manual exploration of the parameter space, potentially missing optimal configurations for their specific datasets. While hyperparameter optimisation frameworks like Optuna [@Optuna:2019] have proven effective in machine learning contexts, their application to cell tracking software remains limited, with no existing tools providing an accessible interface for biologists.
 
-`easytrack` is implemented as a plugin for napari [@napari:2019] called napari-easytrack given its growing bioimage community. 
-The design strategy behind `easytrack` is not to reinvent the wheel but to taking advantage of broadly-used open source software to create a more efficient 
-approach to cell tracking.
+`easytrack` addresses this gap by implementing automated parameter tuning within the napari ecosystem [@napari:2019], leveraging Bayesian optimisation techniques including Tree-structured Parzen Estimators (TPE) [@Ozaki:2022]. By automating what was previously a manual, iterative process, `easytrack` makes high-accuracy cell tracking accessible to researchers without computational expertise whilst reducing the time required from hours to minutes.
 
-The plugin consists of two widgets: the parameter tuning widget and the tracking widget (Fig. \ref{fig:workflow}). The parameter tuning widget aims
-at obtaining the best sets of parameters of btrack [@btrack:2017] using Optuna [@Optuna:2019]. btrack has X parameters
-which needs to be selected to perform a good cell tracking. Using our Ground Truth (GT) dataset with cells already 
-segmented and tracked, we can obtain the quality of the tracking with traccuracy [@Traccuracy:2023]. Then, we use Optuna
-to minimise the difference between our GT tracking accuracy and btrack's prediction with a set of parameters. By 
-minimising that difference, we get the optima configuration as a JSON file to track with btrack a segmented image in time or space.
-`easytrack`'s second widget (tracking) uses a configuration file (JSON) to predict a tracking given an input segmented time-lapse 
-or 3D image. We parse the JSON file and use its parameters to run btrack obtaining a stack of images with their cells tracked 
-alongside their trajectory, which can used to correct them. In both widgets, we provide a button to correct the segmentation
-by removing tiny barely visible objects that can create tracking errors.
+# Software design and key features
 
-![Figure 1. Pipeline of the napari plugin `easytrack`.\label{fig:workflow}](Fig_1_Workflow.png "Workflow")
+`easytrack` is implemented as `napari-easytrack`, a plugin for the napari multi-dimensional image viewer, integrating seamlessly with the growing napari bioimage analysis ecosystem. The design philosophy emphasises composability over reinvention, building upon established open-source tools: btrack for tracking [@btrack:2017; @btrack:2021], Optuna for optimisation [@Optuna:2019], and traccuracy for evaluation [@Traccuracy:2023].
 
-# Research impact statement
+## Architecture
 
-In the age of artificial intelligence, there are many tools obtaining segmentation from microscopy images [@Cellpose:2021].
-However, for complex 3D segmentations a tracking step is required to get an accurate result [@Paci:2025]. We developed
-napari-EpiTools [@EpiTools:2025] a few years ago, and it was missing a tracking algorithm with a simplified graphical user 
-interface. EpiTools has already integrated `easytrack` allowing EpiTools' user base to use it. In addition, 
-btrack is one of the most popular and robust plugins in napari, but it is not specialised for packed tissues, like EpiTools is. 
-Therefore, even though `easytrack` is in its early stages, it fills
-a gap in the napari-community for easy to use tracking tools, particularly for packed tissues and 3D structures.
+The plugin provides two complementary widgets (Figure \ref{fig:workflow}):
 
-# AI Usage Policy
+**Parameter tuning widget:** Automates the discovery of optimal btrack parameters using Bayesian optimisation. Users provide ground truth annotations—cells that have been segmented and tracked—and the widget optimises btrack's 18 parameters by minimising the difference between predicted and ground truth tracking. The optimisation can be performed using TPE (Tree-structured Parzen Estimator) and random search and evaluates tracking quality using the AOGM metric from the Cell Tracking Challenge [@Maska:2014]. Optimised parameters are saved as JSON configuration files for subsequent use.
 
-GitHub Copilot was used to assist in writing some of the code for this project.
-All code was reviewed and edited by the authors.
+**Tracking widget:** Applies previously optimised (or manually created) parameter configurations to new segmented time-lapse or 3D images. The widget parses JSON configuration files, executes btrack with the specified parameters, and displays tracked cells with their trajectories overlaid for visual inspection and manual correction if needed.
+
+Both widgets include segmentation preprocessing functionality to remove small artefacts that can compromise tracking accuracy, this is a common practical issue in automated image analysis workflows.
+
+![Figure 1. Workflow of the napari plugin `easytrack`. The parameter tuning widget (left) uses ground truth annotations to optimise btrack parameters via Bayesian optimisation, whilst the tracking widget (right) applies these optimised parameters to new datasets.\label{fig:workflow}](Fig_1_Workflow.png)
+
+
+The modular design allows researchers to extend the framework with custom metrics or sampling strategies whilst the napari integration provides immediate visual feedback on tracking quality.
+
+# Research impact and adoption
+
+Sophisticated cell tracking algorithms often remain underutilised due to their complexity [@Soelistyo:2023]. `easytrack` addresses this usability barrier by automating parameter tuning, enabling:
+
+1. **Reproducible research:** Parameter configurations can be saved, shared, and reused, reducing variability across studies
+2. **Efficiency gains:** Optimisation completes in tens of minutes compared to hours or days of manual tuning
+3. **Accessibility:** Non-experts can leverage state-of-the-art tracking without deep algorithmic knowledge
+
+The plugin has already been integrated into napari-EpiTools [@EpiTools:2025], a tool for analysing packed epithelial tissues where accurate 3D tracking is essential [@Paci:2025]. This integration demonstrates `easytrack`'s utility for specialised biological applications whilst its implementation as a standalone plugin ensures broader accessibility across the napari community.
+
+
+# AI usage policy
+
+GitHub Copilot and Claude were used to assist in writing portions of the code for this project. All code was reviewed, tested, and edited by the authors.
 
 # Acknowledgements
 
-We thank the Mao lab for giving useful feedback of the graphical user interface and testing `easytrack`.
+We thank the Mao laboratory for providing valuable feedback on the graphical user interface and thoroughly testing `easytrack` during development. We also acknowledge the napari and btrack communities for creating the foundational tools upon which this work builds.
 
 # References
