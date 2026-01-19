@@ -17,14 +17,46 @@ Python API
 ==========
 
 See the :ref:`python_api` pages for the full API of the modules in
-``napari-EasyTrack``. ``napari-EasyTrack`` currently contains to following modules:
+``napari-EasyTrack``.
 
 .. toctree::
-    :maxdepth: 1
+    :caption: Tracking module
+    :hidden:
+    :maxdepth: 2
 
     api/tracking
+
+.. toctree::
+    :caption: Presets module
+    :hidden:
+    :maxdepth: 2
+
     api/presets
+
+.. toctree::
+    :caption: Utils module
+    :hidden:
+    :maxdepth: 2
+
     api/utils
-    api/optim_pipeline
-    api/optim_manager
+
+.. toctree::
+    :caption: Optimization Backend module
+    :hidden:
+    :maxdepth: 2
+
     api/optim_backend
+
+.. toctree::
+    :caption: Optimization Pipeline module
+    :hidden:
+    :maxdepth: 2
+
+    api/optim_pipeline
+
+.. toctree::
+    :caption: Optimization Manager module
+    :hidden:
+    :maxdepth: 2
+
+    api/optim_manager
