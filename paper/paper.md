@@ -66,7 +66,7 @@ Both widgets include segmentation preprocessing functionality to remove small ar
 
 The modular design allows researchers to extend the framework with custom metrics or sampling strategies whilst the napari integration provides immediate visual feedback on tracking quality.
 
-# Research impact and adoption
+# Research impact statement
 
 Sophisticated cell tracking algorithms often remain underutilised due to their complexity [@Soelistyo:2023]. `easytrack` addresses this usability barrier by automating parameter tuning, enabling:
 
@@ -74,7 +74,7 @@ Sophisticated cell tracking algorithms often remain underutilised due to their c
 2. **Efficiency gains:** Optimisation completes in tens of minutes compared to hours or days of manual tuning
 3. **Accessibility:** Non-experts can leverage state-of-the-art tracking without deep algorithmic knowledge
 
-The plugin has already been integrated into napari-EpiTools [@EpiTools:2025], a tool for analysing packed epithelial tissues where accurate 3D tracking is essential [@Paci:2025]. This integration demonstrates `easytrack`'s utility for specialised biological applications whilst its implementation as a standalone plugin ensures broader accessibility across the napari community.
+In the age of artificial intelligence, there are many tools obtaining segmentation from microscopy images [@Cellpose:2021]. However, for complex 3D segmentations a tracking step is required to get an accurate result [@Paci:2025]. The plugin has already been integrated into napari-EpiTools [@EpiTools:2025], a tool for analysing packed epithelial tissues that was previously missing a tracking algorithm with a simplified graphical user interface. This integration allows EpiTools' user base to benefit from automated parameter tuning for accurate 3D tracking. While btrack is one of the most popular and robust plugins in napari, it is not specialised for packed epithelial tissues. Therefore, even though `easytrack` is in its early stages, it fills a gap in the napari community for easy-to-use tracking tools, particularly for epithelial tissues and 3D stitching, whilst its implementation as a standalone plugin ensures broader accessibility across the napari community.
 
 
 # AI usage policy
