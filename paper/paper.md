@@ -37,7 +37,7 @@ bibliography: paper.bib
 
 # Summary
 
-Life is in constant movement, even at the microscopic scale of cells. Quantifying cellular dynamics, or how cells move, is a significant challenge, and manually annotating microscopy time-lapses is extremely time-consuming. In response, the bioimage community has developed algorithms to automatically track cells over time and space. However, cell tracking software remains imperfect and difficult to use, often requiring significant manual parameter tuning, as is the case for btrack [@btrack:2017; @btrack:2021]. easytrack aims to democratise the use of tracking software by providing an easy-to-use graphical interface for tracking and automating the tedious parameter tuning step in btrack.
+Life is in constant movement, even microscopic bodies like cells. To understand cellular dynamics, or how cells move and interact, we analyse time-lapse microscopy images that highlight cellular structures like membranes and nuclei. The bioimage community has developed automated tracking algorithms to follow cells over time and space, but these tools often require extensive manual parameter tuning and technical expertise. `easytrack` democratises cell tracking by providing an intuitive graphical interface and automating the parameter optimisation process, making these powerful algorithms accessible to researchers without computational backgrounds.
 
 # Statement of need
 
