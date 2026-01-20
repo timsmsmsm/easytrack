@@ -19,10 +19,10 @@ from src.napari_easytrack.widgets.widget import (
     BtrackPresetWidget,
 )
 
-def test_add_segmentation_widget(
+def test_add_widget(
     make_napari_viewer: Callable,
 ):
-    """Checks that the segmentation widget can be added inside a dock widget."""
+    """Checks that the widget can be added inside a dock widget."""
 
     viewer = make_napari_viewer()
     num_dw = len(viewer.window._dock_widgets)
