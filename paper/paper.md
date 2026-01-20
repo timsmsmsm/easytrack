@@ -43,14 +43,13 @@ like their membranes or nuclei. For that, the bioimage community has developed a
 cells over time. `easytrack` aims at democratising the use of tracking algorithms by providing an easy-to-use graphical 
 interface and reducing the time required for manual parameter tuning.
 
-# Statement of need and State of the field
+# Statement of need
 
 Cell tracking, the process of following individual cells through time and space, is essential for quantifying dynamic
 cellular behaviours such as migration, division, and morphological changes. These measurements underpin research into
 tissue healing [@Tetley:2019], developmental biology [@Valon:2021], and cancer progression [@Hong:2016]. Despite
 advances in computational methods [@Ulman:2017; @Maska:2023], many tracking algorithms require careful tuning of
-multiple parameters to achieve accurate results [@Loffler:2021; @Chenouard:2014]. For btrack, a Bayesian cell tracking
-algorithm, this involves configuring 18 parameters across its motion and hypothesis models.
+multiple parameters to achieve accurate results [@Loffler:2021; @Chenouard:2014]. 
 
 The lack of accessible parameter optimisation tools creates a barrier between technological capability and practical
 application. Researchers often resort to default parameters or limited manual exploration of the parameter space,
@@ -70,7 +69,9 @@ tissue development to disease progression. Time-lapse microscopy enables researc
 extracting quantitative information requires accurately tracking individual cells across image sequences. Current cell
 tracking software falls into two categories: general-use tools with modest accuracy, or high-performance algorithms like
 btrack [@btrack:2017; @btrack:2021] that require extensive manual parameter tuning. This manual tuning is
-labour-intensive, requires expertise, and often needs repetition for different datasets or experimental conditions.
+labour-intensive, requires expertise, and often needs repetition for different datasets or experimental conditions. 
+For instance, for btrack, a Bayesian cell tracking algorithm, this involves configuring 18 parameters across its motion 
+and hypothesis models. 
 `easytrack` democratises access to high-accuracy cell tracking by automating the parameter optimisation process through
 a user-friendly napari plugin interface.
 
