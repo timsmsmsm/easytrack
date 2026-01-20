@@ -10,6 +10,7 @@ from src.napari_easytrack.analysis.optim_pipeline import (
     compute_scaling_factors,
     read_config_params,
     scale_matrix,
+    write_best_params_to_config,
 )
 
 
@@ -156,3 +157,98 @@ class TestScaleMatrix:
         
         expected = np.eye(3) * 5.0
         np.testing.assert_array_almost_equal(result, expected)
+
+
+class TestWriteBestParamsToConfig:
+    """Tests for write_best_params_to_config function."""
+
+    def test_writes_valid_json_config(self):
+        """Test that a valid JSON config is written."""
+        params = {
+            'prob_not_assign': 0.15,
+            'max_lost': 7,
+            'max_search_radius': 120,
+            'dt': 1.0,
+            'measurements': 3,
+            'states': 6,
+            'accuracy': 8.0,
+            'p_sigma': 200.0,
+            'g_sigma': 20.0,
+            'r_sigma': 6.0,
+            'lambda_time': 6.0,
+            'lambda_dist': 4.0,
+            'lambda_link': 12.0,
+            'lambda_branch': 60.0,
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            temp_path = f.name
+        
+        try:
+            write_best_params_to_config(params, temp_path)
+            
+            # Read back and verify
+            with open(temp_path, 'r') as f:
+                config = json.load(f)
+            
+            assert 'TrackerConfig' in config
+            assert 'MotionModel' in config['TrackerConfig']
+            assert 'HypothesisModel' in config['TrackerConfig']
+            
+            motion = config['TrackerConfig']['MotionModel']
+            assert motion['max_search_radius'] == 120
+            assert motion['prob_not_assign'] == 0.15
+            assert motion['max_lost'] == 7
+            
+        finally:
+            Path(temp_path).unlink()
+
+    def test_handles_minimal_params(self):
+        """Test writing config with minimal parameters using defaults."""
+        params = {
+            'max_search_radius': 100,
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            temp_path = f.name
+        
+        try:
+            write_best_params_to_config(params, temp_path)
+            
+            # Should use defaults for missing params
+            with open(temp_path, 'r') as f:
+                config = json.load(f)
+            
+            motion = config['TrackerConfig']['MotionModel']
+            assert motion['max_search_radius'] == 100
+            # These should have defaults
+            assert 'dt' in motion
+            assert 'measurements' in motion
+            
+        finally:
+            Path(temp_path).unlink()
+
+    def test_includes_required_matrices(self):
+        """Test that required matrices are included in config."""
+        params = {'max_search_radius': 100}
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            temp_path = f.name
+        
+        try:
+            write_best_params_to_config(params, temp_path)
+            
+            with open(temp_path, 'r') as f:
+                config = json.load(f)
+            
+            motion = config['TrackerConfig']['MotionModel']
+            # Check that matrices are present
+            assert 'A' in motion and 'matrix' in motion['A']
+            assert 'H' in motion and 'matrix' in motion['H']
+            assert 'P' in motion
+            assert 'G' in motion
+            assert 'R' in motion
+            
+        finally:
+            Path(temp_path).unlink()
+

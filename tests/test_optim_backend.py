@@ -10,6 +10,9 @@ from src.napari_easytrack.analysis.optim_backend import (
     _build_label_timepoints,
     _clean_ctc_directory,
     _fill_gaps_in_segmentation,
+    _build_track_mapping_continuous,
+    _write_ctc_files,
+    validate_segmentation,
     CellTrackingChallengeDataset,
 )
 
@@ -338,4 +341,237 @@ class TestFillGapsInSegmentation:
         assert np.any(result[1] == 2)
         assert np.any(result[2] == 2)
         assert np.any(result[3] == 2)
+
+
+class TestValidateSegmentation:
+    """Tests for validate_segmentation function."""
+
+    def test_valid_segmentation(self):
+        """Test validation of a valid segmentation."""
+        seg = np.zeros((5, 20, 20), dtype=np.uint16)
+        seg[0, 2:7, 2:7] = 1
+        seg[1, 2:7, 2:7] = 1
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is True
+        assert error == ""
+
+    def test_wrong_dimensions_2d(self):
+        """Test that 2D array is rejected."""
+        seg = np.zeros((20, 20), dtype=np.uint16)
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "must be 3D" in error
+
+    def test_wrong_dimensions_4d(self):
+        """Test that 4D array is rejected."""
+        seg = np.zeros((5, 10, 20, 20), dtype=np.uint16)
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "must be 3D" in error
+
+    def test_too_few_timepoints(self):
+        """Test that single timepoint is rejected."""
+        seg = np.zeros((1, 20, 20), dtype=np.uint16)
+        seg[0, 5:10, 5:10] = 1
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "at least 2 time frames" in error
+
+    def test_no_labels(self):
+        """Test that all-zero segmentation is rejected."""
+        seg = np.zeros((5, 20, 20), dtype=np.uint16)
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "No labels found" in error
+
+    def test_non_integer_dtype(self):
+        """Test that float dtype is rejected."""
+        seg = np.zeros((5, 20, 20), dtype=np.float32)
+        seg[0, 5:10, 5:10] = 1.0
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "must be integer type" in error
+
+
+class TestBuildTrackMappingContinuous:
+    """Tests for _build_track_mapping_continuous function."""
+
+    def test_simple_continuous_track(self):
+        """Test building mapping for continuous tracks."""
+        seg = np.zeros((5, 20, 20), dtype=np.uint16)
+        # Label 1 appears continuously
+        for t in range(5):
+            seg[t, 5:10, 5:10] = 1
+        
+        mapping = _build_track_mapping_continuous(seg)
+        
+        assert len(mapping) == 1
+        assert mapping[0]['new_id'] == 1
+        assert mapping[0]['original_label'] == 1
+        assert mapping[0]['start'] == 0
+        assert mapping[0]['end'] == 4
+
+    def test_multiple_labels(self):
+        """Test mapping multiple labels."""
+        seg = np.zeros((5, 20, 20), dtype=np.uint16)
+        # Label 1
+        for t in range(3):
+            seg[t, 2:7, 2:7] = 1
+        # Label 2
+        for t in range(2, 5):
+            seg[t, 10:15, 10:15] = 2
+        
+        mapping = _build_track_mapping_continuous(seg)
+        
+        assert len(mapping) == 2
+        # Find mappings for each label
+        label1_map = [m for m in mapping if m['original_label'] == 1][0]
+        label2_map = [m for m in mapping if m['original_label'] == 2][0]
+        
+        assert label1_map['start'] == 0
+        assert label1_map['end'] == 2
+        assert label2_map['start'] == 2
+        assert label2_map['end'] == 4
+
+    def test_labels_with_gaps(self):
+        """Test that labels with gaps are treated as continuous from first to last appearance."""
+        seg = np.zeros((6, 20, 20), dtype=np.uint16)
+        # Label 1 appears at t=0, t=2, t=5 (with gaps)
+        seg[0, 5:10, 5:10] = 1
+        seg[2, 5:10, 5:10] = 1
+        seg[5, 5:10, 5:10] = 1
+        
+        mapping = _build_track_mapping_continuous(seg)
+        
+        assert len(mapping) == 1
+        assert mapping[0]['start'] == 0
+        assert mapping[0]['end'] == 5  # Full span from first to last
+
+    def test_new_track_ids_are_sequential(self):
+        """Test that new track IDs are sequential starting from 1."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        seg[0, 2:5, 2:5] = 5  # Original label 5
+        seg[1, 8:11, 8:11] = 10  # Original label 10
+        seg[2, 14:17, 14:17] = 3  # Original label 3
+        
+        mapping = _build_track_mapping_continuous(seg)
+        
+        new_ids = [m['new_id'] for m in mapping]
+        # Should be 1, 2, 3 (sequential, starting from 1)
+        assert sorted(new_ids) == [1, 2, 3]
+
+
+class TestWriteCtcFiles:
+    """Tests for _write_ctc_files function."""
+
+    def test_writes_track_file(self):
+        """Test that man_track.txt is created with correct format."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tra_dir = Path(tmpdir)
+            
+            # Create simple segmentation
+            seg = np.zeros((3, 20, 20), dtype=np.uint16)
+            seg[0, 5:10, 5:10] = 1
+            seg[1, 5:10, 5:10] = 1
+            seg[2, 5:10, 5:10] = 1
+            
+            # Create mapping
+            mapping = [{'new_id': 1, 'original_label': 1, 'start': 0, 'end': 2}]
+            
+            _write_ctc_files(seg, mapping, tra_dir)
+            
+            # Check that track file exists
+            track_file = tra_dir / 'man_track.txt'
+            assert track_file.exists()
+            
+            # Check content
+            with open(track_file, 'r') as f:
+                lines = f.readlines()
+            assert len(lines) == 1
+            assert lines[0].strip() == "1 0 2 0"
+
+    def test_writes_tif_files(self):
+        """Test that TIF files are created for each timepoint."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tra_dir = Path(tmpdir)
+            
+            # Create segmentation
+            seg = np.zeros((3, 20, 20), dtype=np.uint16)
+            seg[0, 5:10, 5:10] = 1
+            seg[1, 5:10, 5:10] = 1
+            seg[2, 5:10, 5:10] = 1
+            
+            mapping = [{'new_id': 1, 'original_label': 1, 'start': 0, 'end': 2}]
+            
+            _write_ctc_files(seg, mapping, tra_dir)
+            
+            # Check that TIF files exist
+            assert (tra_dir / 'man_track0000.tif').exists()
+            assert (tra_dir / 'man_track0001.tif').exists()
+            assert (tra_dir / 'man_track0002.tif').exists()
+
+    def test_relabels_segmentation(self):
+        """Test that segmentation is relabeled according to mapping."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tra_dir = Path(tmpdir)
+            
+            # Create segmentation with label 5
+            seg = np.zeros((2, 20, 20), dtype=np.uint16)
+            seg[0, 5:10, 5:10] = 5
+            seg[1, 5:10, 5:10] = 5
+            
+            # Map label 5 to track ID 1
+            mapping = [{'new_id': 1, 'original_label': 5, 'start': 0, 'end': 1}]
+            
+            _write_ctc_files(seg, mapping, tra_dir)
+            
+            # Load and check relabeled TIF
+            relabeled = skio.imread(tra_dir / 'man_track0000.tif')
+            
+            # Should have label 1 instead of 5
+            assert np.any(relabeled == 1)
+            assert not np.any(relabeled == 5)
+
+    def test_handles_multiple_tracks(self):
+        """Test writing files with multiple tracks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tra_dir = Path(tmpdir)
+            
+            # Create segmentation with 2 labels
+            seg = np.zeros((3, 20, 20), dtype=np.uint16)
+            seg[0, 2:7, 2:7] = 1
+            seg[1, 2:7, 2:7] = 1
+            seg[1, 10:15, 10:15] = 2
+            seg[2, 10:15, 10:15] = 2
+            
+            mapping = [
+                {'new_id': 1, 'original_label': 1, 'start': 0, 'end': 1},
+                {'new_id': 2, 'original_label': 2, 'start': 1, 'end': 2}
+            ]
+            
+            _write_ctc_files(seg, mapping, tra_dir)
+            
+            # Check track file has 2 lines
+            with open(tra_dir / 'man_track.txt', 'r') as f:
+                lines = f.readlines()
+            assert len(lines) == 2
+
 
