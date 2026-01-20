@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 import tempfile
 import os
-import tifffile
+from skimage import io as skio
 
 from src.napari_easytrack.utils import (
     _is_already_labeled,
@@ -373,8 +373,6 @@ class TestLoadFilesFromPattern:
 
     def test_load_synthetic_2d_files(self):
         """Test loading synthetic 2D TIFF files."""
-        from skimage import io as skio
-        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create synthetic 2D frames
             for i in range(3):
@@ -396,8 +394,6 @@ class TestLoadFilesFromPattern:
 
     def test_load_with_cropping(self):
         """Test loading with edge cropping enabled."""
-        from skimage import io as skio
-        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create synthetic 2D frames
             for i in range(2):

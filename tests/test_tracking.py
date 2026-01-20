@@ -87,10 +87,10 @@ class TestGetDefaultConfigPath:
         assert 'cell_config.json' in result
 
     def test_config_file_exists_or_in_temp(self):
-        """Test that the returned path either exists or is in temp location."""
+        """Test that the returned path exists (config file is accessible)."""
         result = get_default_config_path()
         path = Path(result)
         
-        # Either the file exists, or it's in temp directory
-        # (in spawned processes, it might be copied to temp)
-        assert path.exists() or '/tmp/' in str(path) or 'temp' in str(path).lower()
+        # The path should either exist directly, or be in a temp location
+        temp_dir = Path(tempfile.gettempdir())
+        assert path.exists() or path.parent == temp_dir

@@ -9,7 +9,6 @@ import json
 from src.napari_easytrack.analysis.optim_pipeline import (
     compute_scaling_factors,
     read_config_params,
-    scale_matrix,
     write_best_params_to_config,
     add_config_params_to_dict,
     add_missing_attributes,
@@ -120,45 +119,6 @@ class TestReadConfigParams:
         """Test that non-existent file raises error."""
         with pytest.raises(FileNotFoundError):
             read_config_params("/nonexistent/config.json")
-
-
-class TestScaleMatrix:
-    """Tests for scale_matrix function in optim_pipeline."""
-
-    def test_scale_with_nonzero_original(self):
-        """Test scaling matrix with non-zero original sigma."""
-        matrix = np.array([[1.0, 2.0], [3.0, 4.0]])
-        original_sigma = 2.0
-        new_sigma = 4.0
-        
-        result = scale_matrix(matrix, original_sigma, new_sigma)
-        
-        # Should unscale by dividing by 2.0, then rescale by multiplying by 4.0
-        expected = matrix * (new_sigma / original_sigma)
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_scale_with_zero_original(self):
-        """Test scaling matrix when original sigma is zero."""
-        matrix = np.array([[1.0, 2.0], [3.0, 4.0]])
-        original_sigma = 0.0
-        new_sigma = 3.0
-        
-        result = scale_matrix(matrix, original_sigma, new_sigma)
-        
-        # Should just multiply by new_sigma
-        expected = matrix * new_sigma
-        np.testing.assert_array_almost_equal(result, expected)
-
-    def test_scale_identity_matrix(self):
-        """Test scaling an identity matrix."""
-        matrix = np.eye(3)
-        original_sigma = 1.0
-        new_sigma = 5.0
-        
-        result = scale_matrix(matrix, original_sigma, new_sigma)
-        
-        expected = np.eye(3) * 5.0
-        np.testing.assert_array_almost_equal(result, expected)
 
 
 class TestWriteBestParamsToConfig:
