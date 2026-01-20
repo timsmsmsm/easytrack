@@ -21,6 +21,8 @@ class TestOptimizationManager:
             assert manager is not None
             assert hasattr(manager, 'db_path')
 
+            manager.cleanup()
+
     def test_manager_study_exists(self):
         """Test checking if study exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -33,6 +35,8 @@ class TestOptimizationManager:
             assert isinstance(exists, bool)
             assert exists is False
 
+            manager.cleanup()
+
     def test_manager_is_complete(self):
         """Test checking if optimization is complete."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -43,6 +47,8 @@ class TestOptimizationManager:
             is_complete = manager.is_complete()
             
             assert isinstance(is_complete, bool)
+
+            manager.cleanup()
 
     def test_manager_cleanup(self):
         """Test manager cleanup."""
@@ -64,6 +70,8 @@ class TestOptimizationManager:
             # Should return None or tuple
             assert progress is None or isinstance(progress, tuple)
 
+            manager.cleanup()
+
     def test_manager_get_study_summary(self):
         """Test getting study summary."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,6 +82,8 @@ class TestOptimizationManager:
             
             # Should return None or dict
             assert summary is None or isinstance(summary, dict)
+
+            manager.cleanup()
 
     def test_manager_get_best_trials(self):
         """Test getting best trials."""
@@ -92,3 +102,5 @@ class TestOptimizationManager:
             except ValueError:
                 # If study doesn't exist, that's ok - we're testing the method exists
                 assert True
+
+            manager.cleanup()
