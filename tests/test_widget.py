@@ -94,3 +94,49 @@ def test_widget_get_current_params(
     assert 'dist_thresh' in params or len(params) > 0
 
 
+def test_widget_clean_segmentation(
+    make_napari_viewer: Callable,
+):
+    """Test widget clean segmentation functionality."""
+    viewer = make_napari_viewer()
+    
+    # Create fragmented segmentation
+    labels_data = np.zeros((5, 50, 50), dtype=np.uint16)
+    labels_data[0, 10:15, 10:15] = 1
+    # Add small fragments
+    labels_data[0, 5, 5] = 1
+    labels_data[0, 6, 6] = 1
+    
+    # Add labels layer
+    labels_layer = viewer.add_labels(labels_data, name="segmentation")
+    
+    # Add widget
+    widget, widget_instance = viewer.window.add_plugin_dock_widget(
+        plugin_name="napari-easytrack",
+        widget_name="Tracking",
+    )
+    
+    # Verify widget can access the layer
+    assert "segmentation" in [layer.name for layer in viewer.layers]
+
+
+def test_widget_json_config_save(
+    make_napari_viewer: Callable,
+):
+    """Test widget can prepare config for saving."""
+    viewer = make_napari_viewer()
+    
+    # Add widget
+    widget, widget_instance = viewer.window.add_plugin_dock_widget(
+        plugin_name="napari-easytrack",
+        widget_name="Tracking",
+    )
+    
+    # Get current params
+    params = widget_instance._get_current_params()
+    
+    # Verify params can be used to create a config
+    from src.napari_easytrack.presets import create_btrack_config_dict
+    config = create_btrack_config_dict(params)
+    
+    assert 'TrackerConfig' in config

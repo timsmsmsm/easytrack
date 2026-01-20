@@ -96,3 +96,35 @@ def test_optim_widget_initialization(
     
     # Clean up
     viewer.window.remove_dock_widget(dock_widget)
+
+
+def test_optim_widget_layer_selection(
+    make_napari_viewer: Callable,
+):
+    """Test optimization widget layer selection."""
+    viewer = make_napari_viewer()
+    
+    # Create layers
+    seg_data = np.zeros((3, 30, 30), dtype=np.uint16)
+    seg_data[:, 10:20, 10:20] = 1
+    
+    viewer.add_labels(seg_data, name="my_segmentation")
+    viewer.add_labels(seg_data, name="my_ground_truth")
+    
+    # Add widget
+    dw = viewer.window.add_plugin_dock_widget(
+        plugin_name="napari-easytrack",
+        widget_name="Parameter Tuning",
+    )
+    
+    if isinstance(dw, tuple):
+        dock_widget, widget_instance = dw
+    else:
+        dock_widget = dw
+        widget_instance = None
+    
+    # Verify layers are available
+    assert len(viewer.layers) == 2
+    
+    # Clean up
+    viewer.window.remove_dock_widget(dock_widget)

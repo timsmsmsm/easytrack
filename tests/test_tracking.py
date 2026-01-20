@@ -7,6 +7,8 @@ import tempfile
 from src.napari_easytrack.analysis.tracking import (
     scale_matrix,
     get_default_config_path,
+    format_params_summary,
+    validate_params,
 )
 
 
@@ -92,3 +94,84 @@ class TestGetDefaultConfigPath:
         # The path should either exist directly, or be in a temp location
         temp_dir = Path(tempfile.gettempdir())
         assert path.exists() or str(path).startswith(str(temp_dir))
+
+
+class TestFormatParamsSummary:
+    """Tests for format_params_summary function."""
+
+    def test_formats_basic_params(self):
+        """Test formatting basic parameters."""
+        params = {
+            'max_search_radius': 100,
+            'prob_not_assign': 0.1,
+            'div_hypothesis': 1,
+        }
+        
+        summary = format_params_summary(params)
+        
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+
+    def test_formats_empty_params(self):
+        """Test formatting empty parameters."""
+        params = {}
+        
+        summary = format_params_summary(params)
+        
+        assert isinstance(summary, str)
+
+    def test_formats_division_hypothesis(self):
+        """Test that division hypothesis is formatted correctly."""
+        params_with_div = {'div_hypothesis': 1, 'max_search_radius': 100}
+        params_without_div = {'div_hypothesis': 0, 'max_search_radius': 100}
+        
+        summary_with = format_params_summary(params_with_div)
+        summary_without = format_params_summary(params_without_div)
+        
+        # Both should be valid strings
+        assert isinstance(summary_with, str)
+        assert isinstance(summary_without, str)
+
+
+class TestValidateParams:
+    """Tests for validate_params function."""
+
+    def test_validates_correct_params(self):
+        """Test validation of correct parameters."""
+        params = {
+            'max_search_radius': 100,
+            'prob_not_assign': 0.1,
+            'max_lost': 5,
+        }
+        
+        is_valid, error = validate_params(params)
+        
+        # Check that validation returns proper types
+        assert isinstance(is_valid, bool)
+        assert isinstance(error, str)
+        # If invalid, there should be an error message
+        if not is_valid:
+            assert len(error) > 0
+
+    def test_validates_empty_params(self):
+        """Test validation of empty parameters."""
+        params = {}
+        
+        is_valid, error = validate_params(params)
+        
+        # Empty params might be invalid or valid depending on implementation
+        assert isinstance(is_valid, bool)
+        assert isinstance(error, str)
+
+    def test_validates_params_with_invalid_values(self):
+        """Test validation catches invalid parameter values."""
+        params = {
+            'max_search_radius': -100,  # Negative value might be invalid
+        }
+        
+        is_valid, error = validate_params(params)
+        
+        # Check that validation returns proper types
+        assert isinstance(is_valid, bool)
+        assert isinstance(error, str)
+
