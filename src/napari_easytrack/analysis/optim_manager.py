@@ -421,3 +421,18 @@ class OptimizationManager:
         self._on_finished = None
         self._on_error = None
         self._on_progress = None
+
+        # Force close any Optuna SQLite connections
+        # This is critical on Windows where file locks persist
+        if hasattr(self, 'study') and self.study is not None:
+            try:
+                # Close the study's storage connection
+                if hasattr(self.study._storage, '_engine'):
+                    self.study._storage._engine.dispose()
+            except:
+                pass
+            self.study = None
+
+        # Force garbage collection to release any lingering database connections
+        import gc
+        gc.collect()
