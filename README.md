@@ -62,7 +62,7 @@ widget. We recommend starting with the `Tracking` widget to test the plugin with
 Once in the `Tracking` widget, you can select one of the presets from the dropdown menu:
 
 - `Epithelial cells`: for tracking epithelial cells in 2D+time datasets.
-- `Epithelial cells (Z-traacking)`: for tracking epithelial cells in 3D (space) datasets.
+- `Epithelial cells (Z-tracking)`: for tracking epithelial cells in 3D (space) datasets.
 - `Custom JSON`: if none of the presets fit your data, you can provide a custom JSON file with tracking parameters
   optimised for your dataset. You can obtain this JSON file by first using the `Parameter tuning` widget.
 
