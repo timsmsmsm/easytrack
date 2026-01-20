@@ -3,6 +3,8 @@
 [![PyPI](https://img.shields.io/pypi/v/napari-easytrack.svg?color=green)](https://pypi.org/project/napari-easytrack)
 [![Python Version](https://img.shields.io/pypi/pyversions/napari-easytrack.svg?color=green)](https://python.org)
 [![Documentation](https://readthedocs.org/projects/napari-easytrack/badge/?version=latest)](https://napari-easytrack.readthedocs.io/en/latest/?badge=latest)
+
+[![tests](https://github.com/timsmsmsm/easytrack/actions/workflows/tests.yml/badge.svg)](https://github.com/timsmsmsm/easytrack/actions/workflows/tests.yml)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-easytrack)](https://napari-hub.org/plugins/napari-easytrack)
 
 # napari-easytrack
