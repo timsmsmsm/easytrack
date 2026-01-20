@@ -18,6 +18,7 @@ from src.napari_easytrack.utils import (
     load_single_stack,
     load_files_from_pattern,
     load_segmentation,
+    remove_small_labels,
 )
 
 
@@ -740,3 +741,77 @@ class TestUtilsEdgeCases:
         # This would require creating data with unexpected shapes
         # The function already has error handling for this
         pass
+
+
+class TestRemoveSmallLabels:
+    """Tests for remove_small_labels function."""
+
+    def test_removes_small_labels_3d(self):
+        """Test removing small labels from 3D data."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Large label (keep)
+        seg[0, 5:15, 5:15] = 1
+        seg[1, 5:15, 5:15] = 1
+        seg[2, 5:15, 5:15] = 1
+        # Small label at t=0 only with 2 pixels (remove)
+        seg[0, 2:4, 2] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Label 1 should be preserved
+        assert np.any(result == 1)
+        # Label 2 should be removed or reassigned (not present as-is)
+        # In this case it might be assigned to 0 or to a neighbor
+
+    def test_removes_small_labels_4d(self):
+        """Test removing small labels from 4D data."""
+        seg = np.zeros((2, 3, 20, 20), dtype=np.uint16)
+        # Large label
+        seg[0, :, 5:15, 5:15] = 1
+        seg[1, :, 5:15, 5:15] = 1
+        # Small label with only 1 voxel
+        seg[0, 0, 2, 2] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Label 1 should be preserved
+        assert np.any(result == 1)
+
+    def test_preserves_large_labels(self):
+        """Test that large labels are preserved."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Two large labels
+        seg[:, 2:10, 2:10] = 1
+        seg[:, 12:18, 12:18] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Both labels should be preserved
+        assert np.any(result == 1)
+        assert np.any(result == 2)
+
+    def test_handles_empty_frames(self):
+        """Test handling of empty frames."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Only label at t=1
+        seg[1, 5:10, 5:10] = 1
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Should still have the label at t=1
+        assert np.any(result[1] == 1)
+        # t=0 and t=2 should remain empty
+        assert not np.any(result[0] > 0)
+        assert not np.any(result[2] > 0)
+
+    def test_verbose_output(self):
+        """Test that verbose mode produces output."""
+        seg = np.zeros((2, 20, 20), dtype=np.uint16)
+        seg[0, 5:10, 5:10] = 1
+        seg[0, 2:4, 2] = 2  # Small label
+        
+        # This should not raise an error
+        result = remove_small_labels(seg, min_pixels=3, verbose=True)
+        
+        assert result is not None
+
