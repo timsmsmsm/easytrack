@@ -1,3 +1,8 @@
+"""Optimization pipeline  --- :mod:`napari_easytrack.analysis.optim_pipeline`
+================================================================================
+This module contains functions for cell tracking using Bayesian Optimization with timeout handling.
+"""
+
 import gc
 import json
 from multiprocessing import Process, Pipe
@@ -15,6 +20,8 @@ from traccuracy._tracking_graph import TrackingGraph
 from traccuracy.loaders._ctc import ctc_to_graph, _get_node_attributes
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics, DivisionMetrics
+
+from .tracking import get_default_config_path
 
 
 def write_best_params_to_config(params, config_file_path):
@@ -284,7 +291,7 @@ def objective_with_timeout(trial, dataset, gt_data, objectives, timeout, sem, ti
         print(f"Exception occurred during trial execution: {e}")
         return None
 
-def optimize_dataset_with_timeout(dataset, gt_data, objectives, study_name, n_trials=64, timeout=300, timeout_penalty=100000, use_parallel_backend=True, sampler='tpe', search_space=None):
+def optimize_dataset_with_timeout(dataset, gt_data, objectives, study_name, n_trials=64, timeout=300, timeout_penalty=10000, use_parallel_backend=True, sampler='tpe', search_space=None):
     """
     Optimize a dataset with a timeout for each trial.
 
@@ -295,7 +302,7 @@ def optimize_dataset_with_timeout(dataset, gt_data, objectives, study_name, n_tr
         study_name (str): Name of the Optuna study.
         n_trials (int, optional): Number of trials to run. Defaults to 64.
         timeout (int, optional): Timeout for each trial in seconds. Defaults to 300.
-        timeout_penalty (float, optional): Penalty value for timeouts. Defaults to 100000.
+        timeout_penalty (float, optional): Penalty value for timeouts. Defaults to 10000.
         use_parallel_backend (bool, optional): Whether to use parallel backend. Defaults to True.
         sampler (str, optional): Sampler to use for the optimization. Defaults to 'tpe'.
         search_space (dict, optional): Search space for grid sampling.
@@ -620,7 +627,8 @@ def objective(trial, dataset, gt_data, objectives):
                 params[param] = trial.suggest_float(param, low, high)
 
         objects = utils.segmentation_to_objects(dataset.segmentation, properties=('area',))
-        conf = config.load_config('cell_config.json')
+        config_path = get_default_config_path()
+        conf = config.load_config(config_path)
         volume = dataset.volume
         attributes = {
             'theta_dist': params['theta_dist'],
@@ -672,7 +680,7 @@ def objective(trial, dataset, gt_data, objectives):
         lbep, tracks = run_cell_tracking_algorithm(objects, conf, volume, params['max_search_radius'])
         segm = utils.update_segmentation(np.asarray(dataset.segmentation), tracks)
         results = calculate_accuracy(lbep, segm, gt_data)  
-        
+
         for attr, value in results.items():
             trial.set_user_attr(attr, value)
 

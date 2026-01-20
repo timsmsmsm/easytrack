@@ -1,4 +1,5 @@
-"""
+"""Optimization backend --- :mod:`napari_easytrack.analysis.optim_backend`
+=========================================================================
 Backend for preparing napari Labels layers for btrack optimization.
 
 This module handles:
@@ -290,35 +291,27 @@ def prepare_ground_truth_ctc(segmentation, output_dir):
     return tra_dir
 
 
+
 def create_dataset_structure(segmentation: np.ndarray, output_dir: Path) -> Path:
-    """
-    Create dataset structure for optimization.
-    
-    Uses the ORIGINAL segmentation (without gap filling) as the input for tracking.
-    
-    Args:
-        segmentation: 3D numpy array (T, Y, X) with cell labels
-        output_dir: Directory to save dataset files
-        
-    Returns:
-        Path to dataset root directory
-    """
+    """Create dataset structure - with gap filling to match GT."""
     output_dir = Path(output_dir)
     dataset_dir = output_dir / '01'
     dataset_dir.mkdir(parents=True, exist_ok=True)
     
-    T = segmentation.shape[0]
+    # Fill gaps to match GT
+    filled_segmentation = _fill_gaps_in_segmentation(segmentation)
     
-    # Save frames as t*.tif (original segmentation, not gap-filled)
+    T = filled_segmentation.shape[0]
+    
+    # Save frames as t*.tif (gap-filled to match GT)
     for t in range(T):
         io.imsave(
             dataset_dir / f't{t:03d}.tif', 
-            segmentation[t].astype(np.uint16),
+            filled_segmentation[t].astype(np.uint16),
             check_contrast=False
         )
     
     return output_dir
-
 
 def validate_segmentation(segmentation: np.ndarray) -> Tuple[bool, str]:
     """

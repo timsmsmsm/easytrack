@@ -4,9 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "napari-easytrack"
+version = "0.1.4"
 description = "Cell tracking with btrack presets and parameter optimization"
+license.file = "LICENSE.md"
 readme = "README.md"
-requires-python = ">=3.10, <=3.12"
+requires-python = ">=3.10"
 keywords = [
     "biology",
     "cell",
@@ -39,18 +41,11 @@ dependencies = [
     "qtpy",
     "scipy",
     "scikit-image",
-    "napari",
     "magicgui",
-    "qtpy",
-    "btrack",
     "optuna",
     "joblib",
     "traccuracy",
     "numba==0.62.1"
-]
-
-dynamic = [
-    "version",
 ]
 
 [project.optional-dependencies]
@@ -71,6 +66,8 @@ docs = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib-video",
     "types-pytz",
+    "sphinx-rtd-theme",
+    "pyqt5"
 ]
 testing = [
     "pytest",
@@ -86,6 +83,9 @@ napari-easytrack = "napari_easytrack:napari.yaml"
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+napari_easytrack = ["configs/*.json"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

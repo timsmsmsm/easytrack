@@ -85,3 +85,7 @@ results/
 
 # Example data (too large for git)
 *.czi
+
+docs/_build/
+
+*.lcov

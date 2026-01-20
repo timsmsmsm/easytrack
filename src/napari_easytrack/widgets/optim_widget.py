@@ -28,7 +28,7 @@ from qtpy.QtCore import QTimer, Qt
 from ..analysis.optim_backend import prepare_layer_for_optimization
 from ..analysis.optim_manager import OptimizationManager
 from ..analysis.tracking import run_tracking_with_params
-from ..utils import clean_segmentation, get_cleaning_stats
+from ..utils import clean_segmentation, get_cleaning_stats, remove_small_labels
 
 
 class BtrackOptimizationWidget(Container):
@@ -200,8 +200,10 @@ class BtrackOptimizationWidget(Container):
         self.cancel_button = PushButton(text="Cancel")
         self.cancel_button.clicked.connect(self._on_cancel_clicked)
         self.cancel_button.enabled = False
-        self.cancel_button.tooltip = "Cancel current optimization"
-        
+        self.cancel_button.tooltip = (
+            "Cancel current optimization. "
+            "Note: Cancellation is not fully reliable and may not always succeed."
+        )
         self.clean_button = PushButton(text="🧹 Clean Segmentation")
         self.clean_button.clicked.connect(self._on_clean_clicked)
         self.clean_button.tooltip = (
@@ -210,14 +212,37 @@ class BtrackOptimizationWidget(Container):
             "neighboring labels. Useful to run before optimization as btrack "
             "cannot handle disconnected fragments well."
         )
+
+        self.remove_small_button = PushButton(text="🗑️ Remove Small Labels")
+        self.remove_small_button.clicked.connect(self._on_remove_small_clicked)
+        self.remove_small_button.tooltip = (
+            "Remove labels with fewer than the specified number of pixels.\n\n"
+            "Reassigns their pixels to neighboring labels. Useful for removing "
+            "small artifacts or debris from segmentation."
+        )
+        
+        self.min_pixels_spinbox = create_widget(
+            value=4,
+            annotation=int,
+            label="Min size to keep",  # or "Keep labels with ≥"
+            widget_type="SpinBox",
+            options={
+                "min": 1,
+                "max": 1000,
+                "tooltip": "Labels with fewer pixels than this will be reassigned"
+            }
+        )
         
         self.view_dashboard_button = PushButton(text="📊 View Dashboard")
         self.view_dashboard_button.clicked.connect(self._on_view_dashboard_clicked)
         self.view_dashboard_button.tooltip = "Open Optuna dashboard in browser"
         
         self.extend([
+            # Input Selection
             self.layer_selector,
             self.layer_stats_label,
+            
+            # Parameters
             self.study_name_input,
             self.n_trials_spinbox,
             self.timeout_spinbox,
@@ -225,18 +250,30 @@ class BtrackOptimizationWidget(Container):
             self.sampler_combo,
             self.parallel_checkbox,
             self.output_dir_picker,
+            
+            # Advanced Options
             self.show_advanced_button,
             self.voxel_t_spinbox,
             self.voxel_y_spinbox,
             self.voxel_x_spinbox,
+            
+            # Status Display
             self.status_label,
+            
+            # Results Section
             self.results_info_label,
             self.best_trials_combo,
             self.apply_tracking_button,
             self.save_config_button,
+            
+            # Action Buttons
             self.start_button,
             self.cancel_button,
+            
+            # Utility Buttons
             self.clean_button,
+            self.remove_small_button, 
+            self.min_pixels_spinbox,
             self.view_dashboard_button,
         ])
     
@@ -545,6 +582,53 @@ class BtrackOptimizationWidget(Container):
             self.results_info_label.value = f"<font color='red'>Error: {str(e)}</font>"
             print(f"\n❌ Error during cleaning: {e}")
             traceback.print_exc()
+
+    def _on_remove_small_clicked(self):
+            """Handle remove small labels button click."""
+            # Get selected layer
+            layer = self.layer_selector.value
+            
+            if layer is None:
+                self.status_label.value = "❌ Please select a layer first"
+                return
+            
+            segmentation = layer.data
+            
+            # Validate it's 3D or 4D
+            if segmentation.ndim not in [3, 4]:
+                self.status_label.value = f"❌ Must be 3D (T,Y,X) or 4D (T,Z,Y,X), got {segmentation.ndim}D"
+                return
+            
+            min_pixels = self.min_pixels_spinbox.value
+            self.status_label.value = f"🔄 Removing labels < {min_pixels} pixels..."
+            
+            try:
+                # Remove small labels
+                cleaned_seg = remove_small_labels(segmentation, min_pixels=min_pixels, verbose=True)
+                
+                # Add as new layer
+                layer_name = f"{layer.name}_min{min_pixels}"
+                self.viewer.add_labels(cleaned_seg, name=layer_name)
+                
+                # Get stats
+                original_labels = len(np.unique(segmentation)) - 1
+                cleaned_labels = len(np.unique(cleaned_seg)) - 1
+                removed_count = original_labels - cleaned_labels
+                
+                # Update status
+                self.status_label.value = "✅ Small labels removed!"
+                self.results_info_label.value = f"Removed {removed_count} small labels"
+                
+                print(f"\n✅ Created filtered layer: {layer_name}")
+                print(f"   Original labels: {original_labels}")
+                print(f"   Remaining labels: {cleaned_labels}")
+                print(f"   Removed: {removed_count}")
+                
+            except Exception as e:
+                self.status_label.value = "❌ Removal failed"
+                self.results_info_label.value = f"<font color='red'>Error: {str(e)}</font>"
+                print(f"\n❌ Error removing small labels: {e}")
+                traceback.print_exc()
     
     def _on_apply_tracking_clicked(self):
         """Handle apply tracking button click."""
@@ -678,6 +762,7 @@ class BtrackOptimizationWidget(Container):
 
     def _on_save_config_clicked(self):
         """Handle save config button click."""
+        from qtpy.QtWidgets import QFileDialog
         
         # Get selected trial
         if not self.best_trials_combo.value:
@@ -705,23 +790,37 @@ class BtrackOptimizationWidget(Container):
         # Generate default filename
         study_name = self.study_name_input.value
         default_filename = f"{study_name}_trial{trial_num}_config.json"
-        output_dir = Path(self.output_dir_picker.value)
-        save_path = output_dir / default_filename
+        
+        # Open save dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Config File",
+            default_filename,
+            "JSON Files (*.json)"
+        )
+        
+        if not file_path:
+            # User cancelled
+            return
+        
+        # Ensure .json extension
+        if not file_path.endswith('.json'):
+            file_path += '.json'
         
         try:
             # Import the write function
-            from optim_pipeline import write_best_params_to_config
+            from ..analysis.optim_pipeline import write_best_params_to_config
             
             # Write config
-            write_best_params_to_config(selected_trial['params'], str(save_path))
+            write_best_params_to_config(selected_trial['params'], str(file_path))
             
             # Preserve trial count in success message
             n_trials = len(self.best_trials)
             self.results_info_label.value = (
-                f"<font color='green'><b>{n_trials} trials available | Config saved: {save_path.name}</b></font>"
+                f"<font color='green'><b>{n_trials} trials available | Config saved: {Path(file_path).name}</b></font>"
             )
             
-            print(f"\n✅ Config saved to: {save_path}")
+            print(f"\n✅ Config saved to: {file_path}")
             
         except Exception as e:
             n_trials = len(self.best_trials) if self.best_trials else 0
@@ -731,7 +830,10 @@ class BtrackOptimizationWidget(Container):
             )
             print(f"\n❌ Error saving config: {e}")
             traceback.print_exc()
-    
+
+
+
+
     def _on_view_dashboard_clicked(self):
         """Launch Optuna dashboard in browser."""
         try:

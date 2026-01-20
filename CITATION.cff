@@ -1,0 +1,55 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: napari-easytrack
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Tim
+    family-names: Huygelen
+    orcid: 'https://orcid.org/0009-0007-0026-4531'
+    affiliation: >-
+      Laboratory for Molecular Cell Biology, University
+      College London, London, United Kingdom
+    email: tim.huygelen.20@ucl.ac.uk
+  - given-names: Alan
+    family-names: Lowe
+    affiliation: 'Chan Zuckerberg Initiative, Redwood City, CA, USA'
+    orcid: 'https://orcid.org/0000-0002-0558-3597'
+  - given-names: Yanlan
+    family-names: Mao
+    email: y.mao@ucl.ac.uk
+    orcid: 'https://orcid.org/0000-0002-8722-4992'
+    affiliation: >-
+      Laboratory for Molecular Cell Biology, University
+      College London, London, United Kingdom
+  - given-names: Pablo
+    family-names: Vicente-Munuera
+    email: p.munuera@ucl.ac.uk
+    affiliation: >-
+      Laboratory for Molecular Cell Biology, University
+      College London, London, United Kingdom
+    orcid: 'https://orcid.org/0000-0001-5402-7637'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.18200898
+repository-code: 'https://github.com/timsmsmsm/easytrack'
+url: 'https://napari-easytrack.readthedocs.io/'
+abstract: >-
+  napari-easytrack is a napari plugin for automated
+  parameter tuning in cell tracking. It optimises btrack
+  obtaining a set of optimal tracking parameters for a
+  dataset. Using that optimal set of parameters,
+  napari-easytrack can then track the cells in the dataset,
+  improving tracking accuracy and reducing manual correction
+  time.
+keywords:
+  - cell tracking
+  - image analysis
+  - tracking
+  - napari
+  - image quantification
+license: MIT
