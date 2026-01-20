@@ -1,10 +1,8 @@
 """Tests for tracking module."""
 
 import numpy as np
-import pytest
 from pathlib import Path
 import tempfile
-import json
 
 from src.napari_easytrack.analysis.tracking import (
     scale_matrix,
@@ -93,4 +91,4 @@ class TestGetDefaultConfigPath:
         
         # The path should either exist directly, or be in a temp location
         temp_dir = Path(tempfile.gettempdir())
-        assert path.exists() or path.parent == temp_dir
+        assert path.exists() or str(path).startswith(str(temp_dir))

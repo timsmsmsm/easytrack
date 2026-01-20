@@ -1,6 +1,5 @@
 """Tests for optimization pipeline module."""
 
-import numpy as np
 import pytest
 from pathlib import Path
 import tempfile

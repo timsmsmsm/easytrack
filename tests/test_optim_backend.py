@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 from pathlib import Path
 import tempfile
-import os
 
 from src.napari_easytrack.analysis.optim_backend import (
     _build_label_timepoints,

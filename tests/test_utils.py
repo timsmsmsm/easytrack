@@ -5,7 +5,6 @@ import pytest
 from pathlib import Path
 import tempfile
 import os
-from skimage import io as skio
 
 from src.napari_easytrack.utils import (
     _is_already_labeled,
@@ -373,6 +372,8 @@ class TestLoadFilesFromPattern:
 
     def test_load_synthetic_2d_files(self):
         """Test loading synthetic 2D TIFF files."""
+        from skimage import io as skio
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create synthetic 2D frames
             for i in range(3):
@@ -394,6 +395,8 @@ class TestLoadFilesFromPattern:
 
     def test_load_with_cropping(self):
         """Test loading with edge cropping enabled."""
+        from skimage import io as skio
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create synthetic 2D frames
             for i in range(2):
@@ -712,31 +715,8 @@ class TestLoadSingleStack4D:
             
             # Should convert each Z-slice in each timepoint
             assert result.ndim == 4
-            # Check that labeling occurred (labels > 1)
-            assert len(np.unique(result)) > 1
-
-
-class TestUtilsEdgeCases:
-    """Tests for edge cases and error handling."""
-
-    def test_unsupported_dimensionality_raises(self):
-        """Test that unsupported dimensionality raises ValueError."""
-        from skimage import io as skio
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create 1D data (unsupported)
-            data = np.zeros(10, dtype=np.uint8)
-            file_path = os.path.join(tmpdir, "1d.tif")
-            # Note: skimage.io.imsave might not support 1D, so we'll skip actual save
-            # Instead test the logic by checking how files are loaded
-            # This is more of a conceptual test
-            pass
-
-    def test_load_single_stack_unsupported_shape(self):
-        """Test that unsupported data shapes are handled."""
-        # This would require creating data with unexpected shapes
-        # The function already has error handling for this
-        pass
+            # Check that labeling occurred (multiple distinct labels created)
+            assert np.max(result) > 1
 
 
 class TestRemoveSmallLabels:
@@ -756,8 +736,8 @@ class TestRemoveSmallLabels:
         
         # Label 1 should be preserved
         assert np.any(result == 1)
-        # Label 2 should be removed or reassigned (not present as-is)
-        # In this case it might be assigned to 0 or to a neighbor
+        # Label 2 should be removed (too small)
+        assert 2 not in np.unique(result)
 
     def test_removes_small_labels_4d(self):
         """Test removing small labels from 4D data."""
