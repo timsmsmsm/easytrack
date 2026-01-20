@@ -37,11 +37,7 @@ bibliography: paper.bib
 
 # Summary
 
-Life is in constant movement, even microscopic bodies like cells. To understand in a quantitative way, cellular
-dynamics,or how cells move around, we analyse images taken with microscopes where we can highlight cellular structures 
-like their membranes or nuclei. For that, the bioimage community has developed a series of algorithms to correctly track 
-cells over time. `easytrack` aims at democratising the use of tracking algorithms by providing an easy-to-use graphical 
-interface and reducing the time required for manual parameter tuning.
+Life is in constant movement, even at the microscopic scale of cells. Quantifying cellular dynamics, or how cells move, is a significant challenge, and manually annotating microscopy time-lapses is extremely time-consuming. In response, the bioimage community has developed algorithms to automatically track cells over time and space. However, cell tracking software remains imperfect and difficult to use, often requiring significant manual parameter tuning, as is the case for btrack [@btrack:2017; @btrack:2021]. easytrack aims to democratise the use of tracking software by providing an easy-to-use graphical interface for tracking and automating the tedious parameter tuning step in btrack.
 
 # Statement of need
 
@@ -51,7 +47,7 @@ tissue healing [@Tetley:2019], developmental biology [@Valon:2021], and cancer p
 advances in computational methods [@Ulman:2017; @Maska:2023], many tracking algorithms require careful tuning of
 multiple parameters to achieve accurate results [@Loffler:2021; @Chenouard:2014]. 
 
-The lack of accessible parameter optimisation tools creates a barrier between technological capability and practical
+The lack of accessible parameter tuning tools creates a barrier between technological capability and practical
 application. Researchers often resort to default parameters or limited manual exploration of the parameter space,
 potentially missing optimal configurations for their specific datasets. While hyperparameter optimisation frameworks
 like Optuna [@Optuna:2019] have proven effective in machine learning contexts, their application to cell tracking
@@ -86,7 +82,7 @@ optimisation [@Optuna:2019], and traccuracy for evaluation [@Traccuracy:2023].
 
 The plugin provides two complementary widgets (Figure \ref{fig:workflow}):
 
-**Parameter tuning widget:** Automates the discovery of optimal btrack parameters using Bayesian optimisation. Users
+**Parameter tuning widget:** Automates the process of finding optimal btrack parameters for given data using Bayesian optimisation. Users
 provide ground truth annotations (cells that have been segmented and tracked), and the widget optimises btrack's 18
 parameters by minimising the difference between predicted and ground truth tracking. The optimisation can be performed
 using TPE (Tree-structured Parzen Estimator) and random search and evaluates tracking quality using the AOGM metric from
