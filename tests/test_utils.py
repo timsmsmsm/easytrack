@@ -17,6 +17,7 @@ from src.napari_easytrack.utils import (
     load_single_stack,
     load_files_from_pattern,
     load_segmentation,
+    remove_small_labels,
 )
 
 
@@ -521,3 +522,272 @@ class TestLoadSegmentationSynthetic:
             assert result.ndim == 3
             # Check the first dimension - may be reinterpreted depending on content
             assert result.shape[0] >= 1
+
+
+class TestLoadFilesMultiChannel:
+    """Tests for multi-channel image handling in load_files_from_pattern."""
+
+    def test_load_3d_volumes_with_keep_z(self):
+        """Test loading 3D volumes with keep_z=True."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 3D volumes (Z >= 5, Y, X)
+            for i in range(2):
+                frame = np.zeros((8, 15, 15), dtype=np.uint8)
+                frame[2:6, 3:12, 3:12] = 1
+                skio.imsave(os.path.join(tmpdir, f"frame_t{i:04d}.tif"), frame)
+            
+            result = load_files_from_pattern(
+                tmpdir,
+                pattern="*.tif",
+                convert_to_labels=True,
+                crop_edges=False,
+                keep_z=True
+            )
+            
+            # Should output 4D: (T, Z, Y, X)
+            assert result.ndim == 4
+            assert result.shape[0] == 2  # 2 timepoints
+            assert result.shape[1] == 8  # Z slices
+            assert result.shape[2] == 15  # Y
+            assert result.shape[3] == 15  # X
+
+    def test_load_3d_volumes_without_keep_z(self):
+        """Test loading 3D volumes with keep_z=False (max projection)."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 3D volumes
+            for i in range(2):
+                frame = np.zeros((8, 15, 15), dtype=np.uint8)
+                frame[2:6, 3:12, 3:12] = 1
+                skio.imsave(os.path.join(tmpdir, f"frame_t{i:04d}.tif"), frame)
+            
+            result = load_files_from_pattern(
+                tmpdir,
+                pattern="*.tif",
+                convert_to_labels=True,
+                crop_edges=False,
+                keep_z=False
+            )
+            
+            # Should take max projection and output 3D: (T, Y, X)
+            assert result.ndim == 3
+            assert result.shape[0] == 2  # 2 timepoints
+            assert result.shape[1] == 15  # Y
+            assert result.shape[2] == 15  # X
+
+    def test_load_3d_with_cropping(self):
+        """Test loading 3D volumes with cropping enabled."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 3D volumes
+            for i in range(2):
+                frame = np.zeros((8, 25, 25), dtype=np.uint8)
+                frame[2:6, 5:20, 5:20] = 1
+                skio.imsave(os.path.join(tmpdir, f"frame_t{i:04d}.tif"), frame)
+            
+            result = load_files_from_pattern(
+                tmpdir,
+                pattern="*.tif",
+                convert_to_labels=True,
+                crop_edges=True,
+                crop_pixels=3,
+                keep_z=True
+            )
+            
+            # Should be 4D with Y dimension cropped
+            assert result.ndim == 4
+            assert result.shape[0] == 2  # T
+            assert result.shape[1] == 8  # Z (not cropped)
+            assert result.shape[2] == 19  # Y (25 - 2*3)
+            assert result.shape[3] == 25  # X (not cropped)
+
+
+class TestLoadSingleStack4D:
+    """Tests for 4D data handling in load_single_stack."""
+
+    def test_load_4d_with_channels(self):
+        """Test loading 4D data with channel dimension (T, C, Y, X) where C < 4."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 4D data with 2 channels
+            stack = np.zeros((5, 2, 20, 20), dtype=np.uint8)
+            # Make channel 1 have higher variance
+            for t in range(5):
+                stack[t, 1, 5:15, 5:15] = np.random.randint(50, 100, (10, 10))
+            
+            file_path = os.path.join(tmpdir, "stack.tif")
+            skio.imsave(file_path, stack)
+            
+            result = load_single_stack(file_path, convert_to_labels=True)
+            
+            # Should select channel and output 3D (T, Y, X)
+            assert result.ndim == 3
+            assert result.shape[0] == 5  # T
+            assert result.shape[1] == 20  # Y
+            assert result.shape[2] == 20  # X
+
+    def test_load_4d_with_z_dimension(self):
+        """Test loading 4D data with Z dimension (T, Z, Y, X) where Z >= 4."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 4D data with Z slices
+            stack = np.zeros((4, 8, 20, 20), dtype=np.uint8)
+            for t in range(4):
+                stack[t, 2:6, 5:15, 5:15] = 1
+            
+            file_path = os.path.join(tmpdir, "stack.tif")
+            skio.imsave(file_path, stack)
+            
+            result = load_single_stack(file_path, convert_to_labels=True)
+            
+            # Should keep as 4D (T, Z, Y, X)
+            assert result.ndim == 4
+            assert result.shape[0] == 4  # T
+            assert result.shape[1] == 8  # Z
+            assert result.shape[2] == 20  # Y
+            assert result.shape[3] == 20  # X
+
+    def test_load_4d_with_cropping(self):
+        """Test loading 4D data with cropping."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 4D data
+            stack = np.zeros((3, 6, 30, 30), dtype=np.uint8)
+            stack[:, :, 10:20, 10:20] = 1
+            
+            file_path = os.path.join(tmpdir, "stack.tif")
+            skio.imsave(file_path, stack)
+            
+            result = load_single_stack(
+                file_path,
+                convert_to_labels=True,
+                crop_edges=True,
+                crop_pixels=4
+            )
+            
+            # Should be cropped in Y dimension
+            assert result.ndim == 4
+            assert result.shape[2] == 22  # 30 - 2*4
+
+    def test_load_boolean_dtype_conversion(self):
+        """Test that boolean dtype is converted properly."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create data with many unique labels
+            stack = np.zeros((3, 20, 20), dtype=np.uint16)
+            for t in range(3):
+                for i in range(5):
+                    for j in range(5):
+                        stack[t, i*4:(i+1)*4, j*4:(j+1)*4] = i * 5 + j + 1
+            
+            file_path = os.path.join(tmpdir, "labeled.tif")
+            skio.imsave(file_path, stack)
+            
+            result = load_single_stack(file_path, convert_to_labels=False)
+            
+            # Should be detected as labeled and preserve dtype
+            assert np.issubdtype(result.dtype, np.integer)
+            assert result.dtype != bool
+
+    def test_load_4d_labeling(self):
+        """Test conversion of 4D binary data to labels."""
+        from skimage import io as skio
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create 4D binary data
+            stack = np.zeros((2, 3, 15, 15), dtype=np.uint8)
+            # Add some regions
+            stack[:, :, 2:7, 2:7] = 1
+            stack[:, :, 8:13, 8:13] = 1
+            
+            file_path = os.path.join(tmpdir, "stack.tif")
+            skio.imsave(file_path, stack)
+            
+            result = load_single_stack(file_path, convert_to_labels=True)
+            
+            # Should convert each Z-slice in each timepoint
+            assert result.ndim == 4
+            # Check that labeling occurred (multiple distinct labels created)
+            assert np.max(result) > 1
+
+
+class TestRemoveSmallLabels:
+    """Tests for remove_small_labels function."""
+
+    def test_removes_small_labels_3d(self):
+        """Test removing small labels from 3D data."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Large label (keep)
+        seg[0, 5:15, 5:15] = 1
+        seg[1, 5:15, 5:15] = 1
+        seg[2, 5:15, 5:15] = 1
+        # Small label at t=0 only with 2 pixels (remove)
+        seg[0, 2:4, 2] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Label 1 should be preserved
+        assert np.any(result == 1)
+        # Label 2 should be removed (too small)
+        assert 2 not in np.unique(result)
+
+    def test_removes_small_labels_4d(self):
+        """Test removing small labels from 4D data."""
+        seg = np.zeros((2, 3, 20, 20), dtype=np.uint16)
+        # Large label
+        seg[0, :, 5:15, 5:15] = 1
+        seg[1, :, 5:15, 5:15] = 1
+        # Small label with only 1 voxel
+        seg[0, 0, 2, 2] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Label 1 should be preserved
+        assert np.any(result == 1)
+
+    def test_preserves_large_labels(self):
+        """Test that large labels are preserved."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Two large labels
+        seg[:, 2:10, 2:10] = 1
+        seg[:, 12:18, 12:18] = 2
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Both labels should be preserved
+        assert np.any(result == 1)
+        assert np.any(result == 2)
+
+    def test_handles_empty_frames(self):
+        """Test handling of empty frames."""
+        seg = np.zeros((3, 20, 20), dtype=np.uint16)
+        # Only label at t=1
+        seg[1, 5:10, 5:10] = 1
+        
+        result = remove_small_labels(seg, min_pixels=3, verbose=False)
+        
+        # Should still have the label at t=1
+        assert np.any(result[1] == 1)
+        # t=0 and t=2 should remain empty
+        assert not np.any(result[0] > 0)
+        assert not np.any(result[2] > 0)
+
+    def test_verbose_output(self):
+        """Test that verbose mode produces output."""
+        seg = np.zeros((2, 20, 20), dtype=np.uint16)
+        seg[0, 5:10, 5:10] = 1
+        seg[0, 2:4, 2] = 2  # Small label
+        
+        # This should not raise an error
+        result = remove_small_labels(seg, min_pixels=3, verbose=True)
+        
+        assert result is not None
+
