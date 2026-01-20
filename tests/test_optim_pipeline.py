@@ -11,6 +11,8 @@ from src.napari_easytrack.analysis.optim_pipeline import (
     read_config_params,
     scale_matrix,
     write_best_params_to_config,
+    add_config_params_to_dict,
+    add_missing_attributes,
 )
 
 
@@ -251,4 +253,136 @@ class TestWriteBestParamsToConfig:
             
         finally:
             Path(temp_path).unlink()
+
+
+class TestAddConfigParamsToDict:
+    """Tests for add_config_params_to_dict function."""
+
+    def test_adds_params_from_config(self):
+        """Test adding parameters from config file to dictionary."""
+        import pandas as pd
+        
+        # Create a config file
+        config_data = {
+            "TrackerConfig": {
+                "MotionModel": {
+                    "max_lost": 5,
+                    "prob_not_assign": 0.1,
+                    "P": {"sigma": 150.0},
+                    "G": {"sigma": 15.0},
+                    "R": {"sigma": 5.0},
+                },
+                "HypothesisModel": {
+                    "theta_dist": 20.0,
+                    "lambda_dist": 3.0,
+                    "lambda_time": 5.0,
+                    "lambda_link": 10.0,
+                    "lambda_branch": 50.0,
+                    "theta_time": 5.0,
+                    "dist_thresh": 40,
+                    "time_thresh": 2,
+                    "apop_thresh": 5,
+                    "segmentation_miss_rate": 0.1,
+                }
+            }
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(config_data, f)
+            temp_path = f.name
+        
+        try:
+            # Start with empty dataframe
+            params_dict = pd.DataFrame()
+            
+            # Add config params
+            result = add_config_params_to_dict(params_dict, temp_path, "test_dataset")
+            
+            # Check that parameters were added
+            assert len(result) == 1
+            assert "test_dataset" in result.index
+            assert result.loc["test_dataset", "theta_dist"] == 20.0
+            assert result.loc["test_dataset", "p_sigma"] == 150.0
+            
+        finally:
+            Path(temp_path).unlink()
+
+
+class TestAddMissingAttributes:
+    """Tests for add_missing_attributes function."""
+
+    def test_no_missing_attributes(self):
+        """Test graph with all attributes present."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("NetworkX not available")
+        
+        graph = nx.Graph()
+        graph.add_node(1, segmentation_id=1, x=10, y=20, t=0)
+        graph.add_node(2, segmentation_id=2, x=15, y=25, t=1)
+        
+        # Should not raise error
+        add_missing_attributes(graph)
+        
+        # Attributes should still be there
+        assert graph.nodes[1]['segmentation_id'] == 1
+
+    def test_adds_default_attributes_for_integer_nodes(self):
+        """Test adding attributes to integer nodes without attributes."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("NetworkX not available")
+        
+        graph = nx.Graph()
+        graph.add_node(1)  # Node without attributes
+        graph.add_node(2, segmentation_id=2, x=10, y=20, t=0)  # Node with attributes
+        
+        add_missing_attributes(graph)
+        
+        # Node 1 should now have default attributes
+        assert 'segmentation_id' in graph.nodes[1]
+        assert graph.nodes[1]['segmentation_id'] == 1
+        assert graph.nodes[1]['t'] == 0
+
+    def test_adds_attributes_for_string_nodes(self):
+        """Test adding attributes to string nodes in cell_timestep format."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("NetworkX not available")
+        
+        graph = nx.Graph()
+        # Add a node with attributes
+        graph.add_node("5_0", segmentation_id=5, x=10, y=20, t=0)
+        # Add a node without attributes that should inherit from previous
+        graph.add_node("5_1")
+        
+        add_missing_attributes(graph)
+        
+        # Node 5_1 should have attributes
+        assert 'segmentation_id' in graph.nodes["5_1"]
+        assert graph.nodes["5_1"]['segmentation_id'] == 5
+        assert graph.nodes["5_1"]['t'] == 1
+        # Should try to inherit x, y from previous timestep
+        assert graph.nodes["5_1"]['x'] == 10
+        assert graph.nodes["5_1"]['y'] == 20
+
+    def test_handles_invalid_string_nodes(self):
+        """Test handling of string nodes that don't match expected format."""
+        try:
+            import networkx as nx
+        except ImportError:
+            pytest.skip("NetworkX not available")
+        
+        graph = nx.Graph()
+        graph.add_node("invalid_node_name")
+        
+        add_missing_attributes(graph)
+        
+        # Should have default attributes
+        assert 'segmentation_id' in graph.nodes["invalid_node_name"]
+        assert graph.nodes["invalid_node_name"]['segmentation_id'] is None
+
 
