@@ -87,3 +87,5 @@ results/
 *.czi
 
 docs/_build/
+
+*.lcov
