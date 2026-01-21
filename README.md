@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18200898.svg)](https://doi.org/10.5281/zenodo.18200898)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18200897.svg)](https://doi.org/10.5281/zenodo.18200897)
 [![Licence](https://img.shields.io/pypi/l/napari-easytrack.svg?color=green)](https://raw.githubusercontent.com/timsmsmsm/easytrack/main/LICENSE.md)
 [![PyPI](https://img.shields.io/pypi/v/napari-easytrack.svg?color=green)](https://pypi.org/project/napari-easytrack)
 [![Python Version](https://img.shields.io/pypi/pyversions/napari-easytrack.svg?color=green)](https://python.org)
@@ -101,6 +101,6 @@ If you use `napari-easytrack` in your research, please cite the following paper:
     title = {{napari-easytrack}},
     url = {https://github.com/timsmsmsm/easytrack},
     year = {2026},
-    doi = {10.5281/zenodo.18200898},
+    doi = {10.5281/zenodo.18200897},
 }
 ```
