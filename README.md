@@ -74,7 +74,7 @@ clicking on "Save Config (JSON)".
 
 ### Parameter tuning Widget
 
-To optimise your own tracking parameters specific to your dataset, you require to provide some ground-truth data with
+To optimise your own tracking parameters specific to your dataset, you are required to provide some ground-truth data with
 cells segmented and tracked. You will select this dataset as "Ground Truth Layer" in the `Parameter tuning` widget. As a
 first trial, we recommend using a small subset of your data (e.g., 10-20 frames) with a few cells tracked (e.g., 5-10
 cells).
