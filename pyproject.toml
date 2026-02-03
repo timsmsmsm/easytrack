@@ -45,7 +45,7 @@ dependencies = [
     "optuna",
     "joblib",
     "traccuracy",
-    "numba==0.62.1"
+    "numba==0.62.1",
 ]
 
 [project.optional-dependencies]
