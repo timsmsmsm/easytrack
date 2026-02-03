@@ -294,18 +294,15 @@ def prepare_ground_truth_ctc(segmentation, output_dir):
     # Write CTC files with filled segmentation
     _write_ctc_files(filled_segmentation, track_mapping, tra_dir)
     
-    return tra_dir
+    return tra_dir, filled_segmentation
 
 
 
-def create_dataset_structure(segmentation: np.ndarray, output_dir: Path) -> Path:
+def create_dataset_structure(filled_segmentation: np.ndarray, output_dir: Path) -> Path:
     """Create dataset structure - with gap filling to match GT."""
     output_dir = Path(output_dir)
     dataset_dir = output_dir / '01'
     dataset_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Fill gaps to match GT
-    filled_segmentation = _fill_gaps_in_segmentation(segmentation)
     
     T = filled_segmentation.shape[0]
     
@@ -404,11 +401,11 @@ def prepare_layer_for_optimization(
     # Create ground truth in CTC format (fills gaps, creates continuous tracks)
     print("\nCreating ground truth (CTC format with gap filling)...")
     gt_dir = work_dir / 'GT'
-    tra_dir = prepare_ground_truth_ctc(segmentation, gt_dir)
+    tra_dir, filled_segmentation = prepare_ground_truth_ctc(segmentation, gt_dir)
     
     # Create dataset structure (original segmentation, no gap filling)
     print("\nCreating dataset structure (original segmentation)...")
-    dataset_root = create_dataset_structure(segmentation, work_dir / 'dataset')
+    dataset_root = create_dataset_structure(filled_segmentation, work_dir / 'dataset')
     
     # Load ground truth data
     print("\nLoading ground truth data...")
