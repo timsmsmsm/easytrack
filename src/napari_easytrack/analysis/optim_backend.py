@@ -174,7 +174,13 @@ def _fill_gaps_in_segmentation(segmentation):
             else:
                 # This is bad - no space to place placeholder
                 print(f"  WARNING: Could not place placeholder for label {label} at t={gap_t}")
-    
+                print(f"    Thus, discarding this label for all timepoints")
+
+                # Remove label from all timepoints
+                for t in timepoints:
+                    filled[t][filled[t] == label] = 0
+                break  # No need to try further gaps for this label
+
     if total_gaps_filled > 0:
         print(f"  Filled {total_gaps_filled} temporal gaps with placeholder pixels")
         # Print first few details
