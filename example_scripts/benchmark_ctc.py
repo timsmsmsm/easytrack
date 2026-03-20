@@ -49,18 +49,25 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import ssl
 import sys
 import traceback
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Dict, List, Tuple
-
-import ssl
+from typing import Dict, List
 
 import numpy as np
+import pprint
 from skimage import io
+from traccuracy import run_metrics, TrackingGraph
+from traccuracy.matchers import CTCMatcher
+from traccuracy.metrics import CTCMetrics
 
+from napari_easytrack.analysis.tracking import run_tracking_with_params
+from napari_easytrack.presets import load_preset_if_exists, get_presets
+
+pp = pprint.PrettyPrinter(indent=4)
 
 def _make_ssl_context() -> ssl.SSLContext:
     """
@@ -245,156 +252,6 @@ def load_gt_tracking_graph(tra_dir: Path):
 
 
 # ---------------------------------------------------------------------------
-# Tracking helpers
-# ---------------------------------------------------------------------------
-
-def run_tracking_on_segmentation(
-    segmentation: np.ndarray,
-    preset_name: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Run easytrack on a segmentation array using a named preset.
-
-    Parameters
-    ----------
-    segmentation:
-        Integer-labeled segmentation, shape ``(T, Y, X)`` or ``(T, Z, Y, X)``.
-    preset_name:
-        Name of the easytrack preset to use (see ``get_presets()``).
-
-    Returns
-    -------
-    tracked_segmentation:
-        Updated segmentation with consistent track IDs across time.
-    lbep:
-        Numpy array of shape ``(N, 4)`` with columns
-        ``[track_id, start_frame, end_frame, parent_id]``.
-    """
-    import btrack
-    from btrack import utils, config as btrack_config
-
-    from src.napari_easytrack.analysis.tracking import (
-        get_default_config_path,
-        scale_matrix,
-    )
-    from src.napari_easytrack.presets import get_presets
-
-    presets = get_presets()
-    if preset_name not in presets:
-        available = list(presets.keys())
-        raise ValueError(
-            f"Unknown preset '{preset_name}'. Available: {available}"
-        )
-
-    params = presets[preset_name]["config"]
-    if not params:
-        raise ValueError(
-            f"Preset '{preset_name}' has no config. "
-            "Please choose a different preset or provide a custom JSON config."
-        )
-
-    # Load base config and apply preset parameters
-    conf = btrack_config.load_config(get_default_config_path())
-
-    motion_attrs = {
-        "P": scale_matrix(conf.motion_model.P, 150.0, params.get("p_sigma", 150.0)),
-        "G": scale_matrix(conf.motion_model.G, 15.0, params.get("g_sigma", 15.0)),
-        "R": scale_matrix(conf.motion_model.R, 5.0, params.get("r_sigma", 5.0)),
-        "accuracy": params.get("accuracy", 7.5),
-        "max_lost": params.get("max_lost", 5),
-        "prob_not_assign": params.get("prob_not_assign", 0.1),
-    }
-    hyp_attrs = {
-        k: params[k]
-        for k in [
-            "theta_dist", "lambda_time", "lambda_dist", "lambda_link",
-            "lambda_branch", "theta_time", "dist_thresh", "time_thresh",
-            "apop_thresh", "segmentation_miss_rate",
-        ]
-        if k in params
-    }
-
-    for k, v in motion_attrs.items():
-        setattr(conf.motion_model, k, v)
-    for k, v in hyp_attrs.items():
-        setattr(conf.hypothesis_model, k, v)
-
-    if params.get("div_hypothesis", 1) == 1:
-        conf.hypothesis_model.hypotheses = [
-            "P_FP", "P_init", "P_term", "P_link", "P_branch", "P_dead"
-        ]
-    else:
-        conf.hypothesis_model.hypotheses = [
-            "P_FP", "P_init", "P_term", "P_link", "P_dead"
-        ]
-    conf.enable_optimisation = True
-
-    max_search_radius = params.get("max_search_radius", 100)
-
-    # Spatial volume (no time axis)
-    ndim = segmentation.ndim - 1  # subtract time axis
-    spatial_shape = segmentation.shape[1:]
-    if ndim == 2:
-        Y, X = spatial_shape
-        volume = ((0, X), (0, Y))
-    else:
-        Z, Y, X = spatial_shape
-        volume = ((0, X), (0, Y), (0, Z))
-
-    objects = utils.segmentation_to_objects(segmentation, properties=("area",))
-    print(f"    Extracted {len(objects)} cell objects")
-
-    with btrack.BayesianTracker(verbose=False) as tracker:
-        tracker.configure(conf)
-        tracker.volume = volume
-        tracker.max_search_radius = max_search_radius
-        tracker.append(objects)
-        tracker.track(step_size=100)
-        tracker.optimize()
-
-        tracks = tracker.tracks
-        lbep = tracker.LBEP
-        tracked_seg = utils.update_segmentation(
-            np.asarray(segmentation), tracks
-        )
-        print(f"    Found {len(tracks)} tracks")
-
-    return tracked_seg, lbep
-
-
-# ---------------------------------------------------------------------------
-# Metric computation
-# ---------------------------------------------------------------------------
-
-def compute_metrics(
-    lbep: np.ndarray,
-    tracked_segmentation: np.ndarray,
-    gt_data,
-) -> Dict[str, float]:
-    """
-    Compute CTC and Division metrics against ground truth.
-
-    Parameters
-    ----------
-    lbep:
-        LBEP array from btrack (shape ``(N, 4)``).
-    tracked_segmentation:
-        Segmentation updated with track IDs.
-    gt_data:
-        Ground-truth TrackingGraph (from :func:`load_gt_tracking_graph`).
-
-    Returns
-    -------
-    dict
-        Metric name → value mapping.
-    """
-    from src.napari_easytrack.analysis.optim_pipeline import calculate_accuracy
-
-    results = calculate_accuracy(lbep, tracked_segmentation, gt_data)
-    return results
-
-
-# ---------------------------------------------------------------------------
 # Per-sequence benchmark
 # ---------------------------------------------------------------------------
 
@@ -448,23 +305,85 @@ def benchmark_sequence(
 
         # 3. Run tracking
         print(f"    Running tracking (preset: {preset_name!r}) …")
-        tracked_seg, lbep = run_tracking_on_segmentation(segmentation, preset_name)
+        presets = get_presets()
+        params = presets[preset_name]["config"]
 
-        # 4. Compute metrics
+        tracked_seg, tracks, stats, lbep = run_tracking_with_params(
+            segmentation=segmentation,
+            params=params,
+            return_napari=False)
+
+        # 4. Build prediction TrackingGraph from tracking output
+        print("    Building prediction tracking graph …")
+        from napari_easytrack.analysis.optim_pipeline import (
+            ctc_to_graph,
+            add_missing_attributes,
+            _get_node_attributes,
+        )
+        import pandas as pd
+        
+        tracks_df = pd.DataFrame({
+            "Cell_ID": lbep[:, 0],
+            "Start": lbep[:, 1],
+            "End": lbep[:, 2],
+            "Parent_ID": [0 if lbep[idx, 3] == lbep[idx, 0] else lbep[idx, 3] for idx in range(lbep.shape[0])],
+        })
+        detections_df = _get_node_attributes(tracked_seg)
+        G = ctc_to_graph(tracks_df, detections_df)
+        add_missing_attributes(G)
+        pred_data = TrackingGraph(G, tracked_seg)
+
+        # 5. Save predictions in CTC format
+        # Create output directory: {sequence}_RES (parallel to {sequence}_GT)
+        print("    Saving results in CTC format …")
+        res_parent = tra_dir.parent.parent  # Go up from .../GT/TRA to dataset root
+        res_dir = res_parent / f"{sequence}_RES"
+        res_dir.mkdir(exist_ok=True)
+        
+        # Save res_track.txt with LBEP data
+        res_track_path = res_dir / "res_track.txt"
+        with open(res_track_path, "w") as f:
+            for idx in range(lbep.shape[0]):
+                cell_id = int(lbep[idx, 0])
+                start_frame = int(lbep[idx, 1])
+                end_frame = int(lbep[idx, 2])
+                parent_id = int(lbep[idx, 3])
+                # If parent_id equals cell_id, it's a root cell (no parent)
+                if parent_id == cell_id:
+                    parent_id = 0
+                f.write(f"{cell_id}\t{start_frame}\t{end_frame}\t{parent_id}\n")
+        print(f"      Saved {res_track_path}")
+        
+        # Save tracked segmentation images as res_*.tif
+        for t in range(tracked_seg.shape[0]):
+            frame_img = tracked_seg[t]
+            frame_path = res_dir / f"mask{t:03d}.tif"
+            io.imsave(str(frame_path), frame_img, check_contrast=False)
+        print(f"      Saved {tracked_seg.shape[0]} tracked frames to {res_dir}")
+
+        # 6. Compute metrics using run_metrics
         print("    Computing metrics …")
-        metrics = compute_metrics(lbep, tracked_seg, gt_data)
+        ctc_results, ctc_matched = run_metrics(
+            gt_data=gt_data,
+            pred_data=pred_data,
+            matcher=CTCMatcher(),
+            metrics=[CTCMetrics()],
+        )
 
+        # Extract metrics from Results object
         result = {
             "dataset": dataset_name,
             "sequence": sequence,
             "preset": preset_name,
             "n_frames": segmentation.shape[0],
             "input_shape": str(segmentation.shape),
-            **metrics,
+            "TRA": ctc_results[0]["results"]["TRA"],
+            "DET": ctc_results[0]["results"]["DET"],
+            "AOGM": ctc_results[0]["results"]["AOGM"],
         }
-        print(f"    ✓ TRA={metrics.get('TRA', 'N/A'):.4f}  "
-              f"DET={metrics.get('DET', 'N/A'):.4f}  "
-              f"AOGM={metrics.get('AOGM', 'N/A'):.2f}")
+
+        pp.pprint(ctc_results)
+
         return result
 
     except Exception as exc:

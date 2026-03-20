@@ -11,21 +11,18 @@ Provides a GUI for:
 - Saving current parameters to JSON config file
 """
 
-from pathlib import Path
-import traceback
 import json
+import traceback
+from pathlib import Path
 
 import napari
-
-from napari import Viewer
 import numpy as np
 from magicgui.widgets import Container, Label, PushButton, ComboBox, create_widget, CheckBox, FileEdit
 from qtpy.QtCore import QTimer
 
-from ..presets import get_presets, load_config_from_json, create_btrack_config_dict
 from ..analysis.tracking import TrackingManager
+from ..presets import get_presets, load_config_from_json, create_btrack_config_dict
 from ..utils import clean_segmentation, get_cleaning_stats, remove_small_labels
-
 
 # Parameter descriptions for tooltips
 PARAM_DESCRIPTIONS = {

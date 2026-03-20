@@ -8,9 +8,13 @@ Provides:
 - Full napari output (tracks layer support)
 - Process-based execution for cancellability
 """
+from __future__ import annotations
 
 import multiprocessing
 import sys
+
+from btrack.btypes import Tracklet
+from numpy import ndarray
 
 # Fix for macOS CoreFoundation fork issue
 if sys.platform == 'darwin':  # Only on macOS
@@ -107,7 +111,7 @@ def run_tracking_core(
     segmentation: np.ndarray,
     params: Dict[str, Any],
     base_config_path: Optional[str] = None
-) -> Tuple[np.ndarray, list, Dict, np.ndarray, Dict, Any]:
+) -> tuple[ndarray, list[Tracklet], dict, float, ndarray, dict, dict]:
     """
     Core tracking function using the optimization approach.
     
@@ -119,7 +123,7 @@ def run_tracking_core(
         base_config_path: Path to config file. If None, uses package default.
         
     Returns:
-        Tuple of (tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph)
+        Tuple of (tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph)
     """
     print(f"[TRACKING] Starting with segmentation shape: {segmentation.shape}")
     
@@ -272,9 +276,10 @@ def run_tracking_core(
         }
         
         tracks = tracker.tracks
+        lbep = tracker.LBEP
     
     print(f"[TRACKING] Complete!")
-    return tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph
+    return tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph
 
 
 # ============= SIMPLE SYNCHRONOUS API (for optimization widget) =============
@@ -302,7 +307,7 @@ def run_tracking_with_params(segmentation: np.ndarray, params: Dict[str, Any], b
     if base_config_path is None:
         base_config_path = get_default_config_path()
     
-    tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph = run_tracking_core(
+    tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph = run_tracking_core(
         segmentation, params, base_config_path
     )
     
@@ -316,7 +321,7 @@ def run_tracking_with_params(segmentation: np.ndarray, params: Dict[str, Any], b
     if return_napari:
         return tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph
     else:
-        return tracked_seg, tracks, track_info
+        return tracked_seg, tracks, track_info, lbep
 
 
 # ============= ASYNC PROCESS-BASED API (for preset widget) =============
