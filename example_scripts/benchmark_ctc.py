@@ -217,9 +217,9 @@ def load_ctc_segmentation(tra_dir: Path) -> np.ndarray:
     np.ndarray
         Array of shape ``(T, Y, X)`` or ``(T, Z, Y, X)`` with integer labels.
     """
-    mask_files = sorted(tra_dir.glob("man_track*.tif"))
+    mask_files = sorted(tra_dir.glob("man_seg*.tif"))
     if not mask_files:
-        raise FileNotFoundError(f"No man_track*.tif files found in {tra_dir}")
+        raise FileNotFoundError(f"No man_seg*.tif files found in {tra_dir}")
 
     frames = [io.imread(str(f)) for f in mask_files]
     segmentation = np.stack(frames, axis=0)
@@ -280,11 +280,12 @@ def benchmark_sequence(
     dict
         Result dict including all metrics and metadata.
     """
-    tra_dir = dataset_dir / f"{sequence}_GT" / "TRA"
-    if not tra_dir.exists():
-        print(f"  [skip] GT directory not found: {tra_dir}")
+    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+    if not seg_dir.exists():
+        print(f"  [skip] GT directory not found: {seg_dir}")
         return {"dataset": dataset_name, "sequence": sequence, "error": "GT not found"}
 
+    tra_dir = dataset_dir / f"{sequence}_GT" / "TRA"
     man_track = tra_dir / "man_track.txt"
     if not man_track.exists():
         print(f"  [skip] man_track.txt not found in {tra_dir}")
@@ -296,7 +297,7 @@ def benchmark_sequence(
     try:
         # 1. Load GT segmentation as tracking input
         print("    Loading segmentation …")
-        segmentation = load_ctc_segmentation(tra_dir)
+        segmentation = load_ctc_segmentation(seg_dir)
         segmentation = segmentation.astype(np.uint16)
 
         # 2. Load GT tracking graph for evaluation
@@ -321,7 +322,7 @@ def benchmark_sequence(
             _get_node_attributes,
         )
         import pandas as pd
-        
+
         tracks_df = pd.DataFrame({
             "Cell_ID": lbep[:, 0],
             "Start": lbep[:, 1],
