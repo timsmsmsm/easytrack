@@ -56,8 +56,49 @@ import zipfile
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import ssl
+
 import numpy as np
 from skimage import io
+
+
+def _make_ssl_context() -> ssl.SSLContext:
+    """
+    Return an SSL context that works on macOS even when the system
+    certificate store is not wired up to Python (the common
+    'certificate verify failed' error after a plain Python install).
+
+    Strategy:
+    1. Try the default context (works when certifi or system certs are fine).
+    2. Fall back to certifi's bundle if it is installed.
+    3. Last resort: unverified context (prints a warning).
+    """
+    try:
+        ctx = ssl.create_default_context()
+        # Quick probe – if this raises, certs are not available
+        import urllib.request as _ur
+        _ur.urlopen("https://celltrackingchallenge.net/", context=ctx, timeout=5).close()
+        return ctx
+    except Exception:
+        pass
+
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        return ctx
+    except ImportError:
+        pass
+
+    import warnings
+    warnings.warn(
+        "SSL certificate verification disabled. "
+        "Install certifi (`pip install certifi`) or run "
+        "`/Applications/Python\\ 3.x/Install\\ Certificates.command` "
+        "for a proper fix.",
+        stacklevel=2,
+    )
+    ctx = ssl._create_unverified_context()
+    return ctx
 
 # ---------------------------------------------------------------------------
 # Dataset catalogue
@@ -122,7 +163,20 @@ def download_dataset(name: str, data_dir: Path) -> Path:
 
     print(f"  Downloading {name} from:\n    {url}")
     try:
-        urllib.request.urlretrieve(url, zip_path, reporthook=_progress_hook)
+        ssl_ctx = _make_ssl_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, context=ssl_ctx) as response:
+            total_size = int(response.headers.get("Content-Length", 0))
+            block_size = 8192
+            count = 0
+            with open(zip_path, "wb") as out_f:
+                while True:
+                    chunk = response.read(block_size)
+                    if not chunk:
+                        break
+                    out_f.write(chunk)
+                    count += 1
+                    _progress_hook(count, block_size, total_size)
         print()  # newline after progress bar
     except Exception as exc:
         print(f"\n  ERROR downloading {name}: {exc}")
