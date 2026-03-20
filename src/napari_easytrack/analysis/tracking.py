@@ -279,20 +279,14 @@ def run_tracking_core(
 
 # ============= SIMPLE SYNCHRONOUS API (for optimization widget) =============
 
-def run_tracking_with_params(
-    segmentation: np.ndarray,
-    params: Dict[str, Any],
-    voxel_scale: Tuple[float, float, float] = (1.0, 1.0, 1.0),
-    base_config_path: Optional[str] = None,
-    return_napari: bool = False
-) -> Tuple:
+def run_tracking_with_params(segmentation: np.ndarray, params: Dict[str, Any], base_config_path: Optional[str] = None,
+                             return_napari: bool = False) -> Tuple:
     """
     Simple synchronous tracking for optimization widget.
     
     Args:
         segmentation: 3D or 4D array
         params: Parameter dictionary
-        voxel_scale: Voxel scaling (currently unused but kept for compatibility)
         base_config_path: Path to config file. If None, uses package default.
         return_napari: If True, returns napari tracks data as well
         

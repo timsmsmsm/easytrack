@@ -691,11 +691,7 @@ class BtrackOptimizationWidget(Container):
             
             # Run tracking WITH napari data
             tracked_seg, tracks, stats, napari_data, napari_properties, napari_graph = run_tracking_with_params(
-                segmentation=layer.data,
-                params=selected_trial['params'],
-                voxel_scale=voxel_sizes,
-                return_napari=True
-            )
+                segmentation=layer.data, params=selected_trial['params'], return_napari=True)
             
             # Add tracked labels layer
             labels_layer_name = f"Tracked Labels (Trial {trial_num}, AOGM: {selected_trial['aogm']:.2f})"
