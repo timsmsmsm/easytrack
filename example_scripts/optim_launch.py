@@ -1,12 +1,12 @@
 """Launch the btrack parameter optimization widget."""
 import napari
 
+from napari_easytrack import BtrackOptimizationWidget
+
 
 def main():
     """Launch napari with the optimization widget."""
     viewer = napari.Viewer()
-    
-    from optim_widget import BtrackOptimizationWidget
     
     optim_widget = BtrackOptimizationWidget(viewer)
     

@@ -90,5 +90,5 @@ docs/_build/
 
 *.lcov
 
-ctc_data/
-ctc_results/
+example_scripts/ctc_data/
+example_scripts/ctc_results/

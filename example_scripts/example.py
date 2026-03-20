@@ -23,7 +23,7 @@ from src.napari_easytrack.utils import load_segmentation
 #   - A directory: 'path/to/folder/' (with pattern below)
 #DATA_PATH = 'example_data/z_tracking_not_cleaned.tif'
 #or
-DATA_PATH = 'example_data/2d_time_example'
+DATA_PATH = '../example_data/2d_time_example'
 
 # Pattern (only needed if DATA_PATH is a directory)
 PATTERN = '*.tif'
