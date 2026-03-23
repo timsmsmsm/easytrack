@@ -1,0 +1,1396 @@
+================================================================================
+easytrack — Cell Tracking Challenge Benchmark
+================================================================================
+
+Data citation:
+  Maška et al., Nature Methods 20, 1010–1020 (2023)
+  https://doi.org/10.1038/s41592-023-01879-y
+  Ulman et al., Nature Methods 14, 1141–1152 (2017)
+  https://doi.org/10.1038/nmeth.4473
+  Data source: Cell Tracking Challenge (https://celltrackingchallenge.net/)
+
+  Segmentation source: GT + ST merged (use --gt-only to disable)
+  Methods: easytrack vs btrack baseline
+
+
+──────────────────────────────────────────────────────────────────────
+Dataset: PhC-C2DH-U373
+  2D+time: Glioblastoma-astrocytoma U373 cells on a polyacrylamide substrate
+  [skip] PhC-C2DH-U373 already present at /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373
+
+  ── Sequence 01 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 15 GT + 115 ST frames, 115 TRA frames → 115 union frames
+    Merge result: 15 GT + 100 ST frames written, 0 skipped (no TRA), 765 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_MERGED_SEG/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 115 frames → shape (115, 520, 696), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  88%|████████▊ | 100/114 [00:00<00:00, 993.97it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 969.94it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  83%|████████▎ | 95/115 [00:00<00:00, 946.40it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 955.22it/s]
+    GT nodes: 765, GT edges: 758
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  59%|█████▉    | 67/114 [00:00<00:00, 646.89it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 590.24it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  85%|████████▌ | 98/115 [00:00<00:00, 972.87it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 977.52it/s]
+[INFO][2026/03/23 12:42:11 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:11 PM] Localizing objects from segmentation...
+    GT nodes: 765, GT edges: 758
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (115, 520, 696)
+[TRACKING] 2D+T data: T=115, Y=520, X=696
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:  22%|██▏       | 25/115 [00:00<00:00, 248.96it/s]progress:  48%|████▊     | 55/115 [00:00<00:00, 273.12it/s]progress:  72%|███████▏  | 83/115 [00:00<00:00, 255.82it/s]progress:  95%|█████████▍| 109/115 [00:00<00:00, 250.62it/s]progress: 100%|██████████| 115/115 [00:00<00:00, 253.57it/s]
+[INFO][2026/03/23 12:42:12 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:12 PM] ...Found 765 objects in 115 frames.
+[INFO][2026/03/23 12:42:12 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:12 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:12 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:12 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:12 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:12 PM] Tracking objects in frames 0 to 99 (of 115)...
+[INFO][2026/03/23 12:42:12 PM]  - Timing (Bayesian updates: 0.02ms, Linking: 0.02ms)
+[INFO][2026/03/23 12:42:12 PM]  - Probabilities (Link: 0.97210, Lost: 0.99687)
+[INFO][2026/03/23 12:42:12 PM]  - Stats (Active: 7, Lost: 6, Conflicts resolved: 0)
+[INFO][2026/03/23 12:42:12 PM] Tracking objects in frames 100 to 115 (of 115)...
+[INFO][2026/03/23 12:42:12 PM]  - Timing (Bayesian updates: 0.02ms, Linking: 0.02ms)
+[INFO][2026/03/23 12:42:12 PM]  - Probabilities (Link: 0.97361, Lost: 0.99687)
+[INFO][2026/03/23 12:42:12 PM] SUCCESS.
+[INFO][2026/03/23 12:42:12 PM]  - Found 8 tracks in 115 frames (in 0.0s)
+[INFO][2026/03/23 12:42:12 PM]  - Inserted 0 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:12 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:12 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:12 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:12 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+32 rows, 24 columns, 32 non-zeros
+24 integer variables, all of which are binary
+Preprocessing...
+16 rows, 24 columns, 32 non-zeros
+24 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 16
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+16 rows, 24 columns, 32 non-zeros
+*     0: obj =   1.097150649e+00 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++     0: mip =     not found yet >=              -inf        (1; 0)
++     0: >>>>>   1.097150649e+00 >=   1.097150649e+00   0.0% (1; 0)
++     0: mip =   1.097150649e+00 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:12 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:12 PM]  - Fates.FALSE_POSITIVE: 0 (of 8)
+[INFO][2026/03/23 12:42:12 PM]  - Fates.INITIALIZE_BORDER: 1 (of 1)
+[INFO][2026/03/23 12:42:12 PM]  - Fates.INITIALIZE_FRONT: 7 (of 7)
+[INFO][2026/03/23 12:42:12 PM]  - Fates.TERMINATE_BORDER: 1 (of 1)
+[INFO][2026/03/23 12:42:12 PM]  - Fates.TERMINATE_BACK: 7 (of 7)
+[INFO][2026/03/23 12:42:12 PM]  - TOTAL: 24 hypotheses
+[INFO][2026/03/23 12:42:12 PM] Completed optimization with 8 tracks
+[INFO][2026/03/23 12:42:12 PM] Ending BayesianTracker session
+[TRACKING] Found 765 objects
+[TRACKING] Volume: ((0, 696), (0, 520))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 8 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 8
+  Tracks > 1 frame: 8
+  Tracks > 5 frames: 8
+  Tracks > 10 frames: 8
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  47%|████▋     | 54/115 [00:00<00:00, 534.98it/s]Computing node attributes:  94%|█████████▍| 108/115 [00:00<00:00, 511.68it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 513.14it/s]
+Matching frames:   0%|          | 0/115 [00:00<?, ?it/s]Matching frames: 100%|██████████| 115/115 [00:00<00:00, 6070.21it/s]
+Evaluating nodes:   0%|          | 0/765 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 765/765 [00:00<00:00, 558704.96it/s]
+Evaluating FP edges:   0%|          | 0/757 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 757/757 [00:00<00:00, 499306.20it/s]
+Evaluating FN edges:   0%|          | 0/758 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 758/758 [00:00<00:00, 817716.67it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 1.5,
+                       'DET': 1.0,
+                       'LNK': 0.9986807387862797,
+                       'TRA': 0.999829293274155,
+                       'fn_edges': 1,
+                       'fn_nodes': 0,
+                       'fp_edges': 0,
+                       'fp_nodes': 0,
+                       'ns_nodes': 0,
+                       'ws_edges': 0},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_easytrack/res_track.txt
+      Saved 115 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_easytrack/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  41%|████      | 47/114 [00:00<00:00, 468.72it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 721.03it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  90%|████████▉ | 103/115 [00:00<00:00, 1025.92it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 1018.45it/s]
+[INFO][2026/03/23 12:42:13 PM] Localizing objects from segmentation...
+    GT nodes: 765, GT edges: 758
+progress:  24%|██▍       | 28/115 [00:00<00:00, 277.68it/s]progress:  49%|████▊     | 56/115 [00:00<00:00, 271.29it/s]progress:  73%|███████▎  | 84/115 [00:00<00:00, 263.82it/s]progress:  97%|█████████▋| 111/115 [00:00<00:00, 265.40it/s]progress: 100%|██████████| 115/115 [00:00<00:00, 266.40it/s]
+[INFO][2026/03/23 12:42:13 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:13 PM] ...Found 765 objects in 115 frames.
+[INFO][2026/03/23 12:42:13 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:13 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:13 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:13 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:13 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:13 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:13 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:13 PM] Tracking objects in frames 0 to 99 (of 115)...
+[INFO][2026/03/23 12:42:13 PM]  - Timing (Bayesian updates: 0.04ms, Linking: 0.03ms)
+[INFO][2026/03/23 12:42:13 PM]  - Probabilities (Link: 0.99999, Lost: 0.99965)
+[INFO][2026/03/23 12:42:13 PM]  - Stats (Active: 7, Lost: 181, Conflicts resolved: 0)
+[INFO][2026/03/23 12:42:13 PM] Tracking objects in frames 100 to 115 (of 115)...
+[INFO][2026/03/23 12:42:13 PM]  - Timing (Bayesian updates: 0.04ms, Linking: 0.02ms)
+[INFO][2026/03/23 12:42:13 PM]  - Probabilities (Link: 0.99871, Lost: 0.99500)
+[INFO][2026/03/23 12:42:13 PM] SUCCESS.
+[INFO][2026/03/23 12:42:13 PM]  - Found 41 tracks in 115 frames (in 0.0s)
+[INFO][2026/03/23 12:42:13 PM]  - Inserted 0 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:13 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:13 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:13 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:13 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+164 rows, 170 columns, 265 non-zeros
+170 integer variables, all of which are binary
+Preprocessing...
+82 rows, 170 columns, 265 non-zeros
+170 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 82
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+82 rows, 170 columns, 265 non-zeros
+*     0: obj =   4.384832295e+02 inf =   0.000e+00 (57)
+*    56: obj =   6.852128790e+01 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++    56: mip =     not found yet >=              -inf        (1; 0)
++    56: >>>>>   6.852128790e+01 >=   6.852128790e+01   0.0% (1; 0)
++    56: mip =   6.852128790e+01 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:13 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.FALSE_POSITIVE: 0 (of 41)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.LINK: 33 (of 40)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.DIVIDE: 0 (of 7)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.INITIALIZE_FRONT: 6 (of 8)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.INITIALIZE_LAZY: 2 (of 33)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.TERMINATE_BACK: 7 (of 9)
+[INFO][2026/03/23 12:42:13 PM]  - Fates.TERMINATE_LAZY: 1 (of 32)
+[INFO][2026/03/23 12:42:13 PM]  - TOTAL: 170 hypotheses
+[INFO][2026/03/23 12:42:13 PM] Completed optimization with 8 tracks
+[INFO][2026/03/23 12:42:13 PM] Ending BayesianTracker session
+    [btrack] Found 8 tracks
+    [btrack] Tracks > 1 frame: 8 of 8
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  54%|█████▍    | 62/115 [00:00<00:00, 615.27it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 582.76it/s]
+Matching frames:   0%|          | 0/115 [00:00<?, ?it/s]Matching frames: 100%|██████████| 115/115 [00:00<00:00, 5976.87it/s]
+Evaluating nodes:   0%|          | 0/765 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 765/765 [00:00<00:00, 491294.22it/s]
+Evaluating FP edges:   0%|          | 0/757 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 757/757 [00:00<00:00, 578867.48it/s]
+Evaluating FN edges:   0%|          | 0/758 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 758/758 [00:00<00:00, 748418.65it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 1.5,
+                       'DET': 1.0,
+                       'LNK': 0.9986807387862797,
+                       'TRA': 0.999829293274155,
+                       'fn_edges': 1,
+                       'fn_nodes': 0,
+                       'fp_edges': 0,
+                       'fp_nodes': 0,
+                       'ns_nodes': 0,
+                       'ws_edges': 0},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_btrack/res_track.txt
+      Saved 115 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/01_RES_btrack/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+
+  ── Sequence 02 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 19 GT + 115 ST frames, 115 TRA frames → 115 union frames
+    Merge result: 19 GT + 96 ST frames written, 0 skipped (no TRA), 687 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_MERGED_SEG/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 115 frames → shape (115, 520, 696), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  92%|█████████▏| 105/114 [00:00<00:00, 1049.94it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 1029.88it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  88%|████████▊ | 101/115 [00:00<00:00, 1009.57it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 1008.98it/s]
+    GT nodes: 692, GT edges: 685
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  94%|█████████▍| 107/114 [00:00<00:00, 1067.54it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 1066.60it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  91%|█████████▏| 105/115 [00:00<00:00, 1044.73it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 1039.30it/s]
+[INFO][2026/03/23 12:42:16 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:16 PM] Localizing objects from segmentation...
+    GT nodes: 692, GT edges: 685
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (115, 520, 696)
+[TRACKING] 2D+T data: T=115, Y=520, X=696
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:  23%|██▎       | 27/115 [00:00<00:00, 267.84it/s]progress:  49%|████▊     | 56/115 [00:00<00:00, 277.28it/s]progress:  73%|███████▎  | 84/115 [00:00<00:00, 271.32it/s]progress:  97%|█████████▋| 112/115 [00:00<00:00, 265.18it/s]progress: 100%|██████████| 115/115 [00:00<00:00, 268.55it/s]
+[INFO][2026/03/23 12:42:16 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:16 PM] ...Found 690 objects in 115 frames.
+[INFO][2026/03/23 12:42:16 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:16 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:16 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:16 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:16 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:16 PM] Tracking objects in frames 0 to 99 (of 115)...
+[INFO][2026/03/23 12:42:16 PM]  - Timing (Bayesian updates: 0.01ms, Linking: 0.01ms)
+[INFO][2026/03/23 12:42:16 PM]  - Probabilities (Link: 0.96303, Lost: 1.00000)
+[INFO][2026/03/23 12:42:16 PM]  - Stats (Active: 6, Lost: 61, Conflicts resolved: 8)
+[INFO][2026/03/23 12:42:16 PM] Tracking objects in frames 100 to 115 (of 115)...
+[INFO][2026/03/23 12:42:16 PM]  - Timing (Bayesian updates: 0.01ms, Linking: 0.01ms)
+[INFO][2026/03/23 12:42:16 PM]  - Probabilities (Link: 0.97170, Lost: 0.98725)
+[INFO][2026/03/23 12:42:16 PM] SUCCESS.
+[INFO][2026/03/23 12:42:16 PM]  - Found 17 tracks in 115 frames (in 0.0s)
+[INFO][2026/03/23 12:42:16 PM]  - Inserted 6 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:16 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:16 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:16 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:16 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+68 rows, 55 columns, 77 non-zeros
+55 integer variables, all of which are binary
+Preprocessing...
+34 rows, 55 columns, 77 non-zeros
+55 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 34
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+34 rows, 55 columns, 77 non-zeros
+*     0: obj =   1.539929653e+01 inf =   0.000e+00 (6)
+*     6: obj =   9.482169548e+00 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++     6: mip =     not found yet >=              -inf        (1; 0)
++     6: >>>>>   9.482169548e+00 >=   9.482169548e+00   0.0% (1; 0)
++     6: mip =   9.482169548e+00 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:16 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.FALSE_POSITIVE: 4 (of 17)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.LINK: 0 (of 3)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.DIVIDE: 1 (of 1)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.INITIALIZE_BORDER: 4 (of 10)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.INITIALIZE_FRONT: 7 (of 7)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.TERMINATE_BORDER: 6 (of 9)
+[INFO][2026/03/23 12:42:16 PM]  - Fates.TERMINATE_BACK: 6 (of 8)
+[INFO][2026/03/23 12:42:16 PM]  - TOTAL: 55 hypotheses
+[INFO][2026/03/23 12:42:16 PM] Completed optimization with 17 tracks
+[INFO][2026/03/23 12:42:16 PM] Ending BayesianTracker session
+[TRACKING] Found 690 objects
+[TRACKING] Volume: ((0, 696), (0, 520))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 17 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 17
+  Tracks > 1 frame: 13
+  Tracks > 5 frames: 12
+  Tracks > 10 frames: 10
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  61%|██████    | 70/115 [00:00<00:00, 693.70it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 700.17it/s]
+Matching frames:   0%|          | 0/115 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 115/115 [00:00<00:00, 6691.89it/s]
+Evaluating nodes:   0%|          | 0/685 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 685/685 [00:00<00:00, 565681.87it/s]
+Evaluating FP edges:   0%|          | 0/661 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 661/661 [00:00<00:00, 585025.31it/s]
+Evaluating FN edges:   0%|          | 0/685 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 685/685 [00:00<00:00, 947279.34it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 135.5,
+                       'DET': 0.9882947976878613,
+                       'LNK': 0.9469586374695864,
+                       'TRA': 0.9829506134004404,
+                       'fn_edges': 31,
+                       'fn_nodes': 7,
+                       'fp_edges': 7,
+                       'fp_nodes': 11,
+                       'ns_nodes': 0,
+                       'ws_edges': 1},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_easytrack/res_track.txt
+      Saved 115 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_easytrack/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/114 [00:00<?, ?it/s]Loading TIFFs:  64%|██████▍   | 73/114 [00:00<00:00, 726.21it/s]Loading TIFFs: 100%|██████████| 114/114 [00:00<00:00, 840.68it/s]
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  92%|█████████▏| 106/115 [00:00<00:00, 1050.45it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 1049.65it/s]
+[INFO][2026/03/23 12:42:17 PM] Localizing objects from segmentation...
+    GT nodes: 692, GT edges: 685
+progress:  25%|██▌       | 29/115 [00:00<00:00, 281.68it/s]progress:  50%|█████     | 58/115 [00:00<00:00, 286.26it/s]progress:  77%|███████▋  | 88/115 [00:00<00:00, 290.41it/s]progress: 100%|██████████| 115/115 [00:00<00:00, 294.44it/s]
+[INFO][2026/03/23 12:42:18 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:18 PM] ...Found 690 objects in 115 frames.
+[INFO][2026/03/23 12:42:18 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:18 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:18 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:18 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:18 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:18 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:18 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:18 PM] Tracking objects in frames 0 to 99 (of 115)...
+[INFO][2026/03/23 12:42:18 PM]  - Timing (Bayesian updates: 0.02ms, Linking: 0.02ms)
+[INFO][2026/03/23 12:42:18 PM]  - Probabilities (Link: 0.97659, Lost: 0.96587)
+[INFO][2026/03/23 12:42:18 PM]  - Stats (Active: 8, Lost: 301, Conflicts resolved: 1)
+[INFO][2026/03/23 12:42:18 PM] Tracking objects in frames 100 to 115 (of 115)...
+[INFO][2026/03/23 12:42:18 PM]  - Timing (Bayesian updates: 0.01ms, Linking: 0.01ms)
+[INFO][2026/03/23 12:42:18 PM]  - Probabilities (Link: 0.99988, Lost: 0.91247)
+[INFO][2026/03/23 12:42:18 PM] SUCCESS.
+[INFO][2026/03/23 12:42:18 PM]  - Found 59 tracks in 115 frames (in 0.0s)
+[INFO][2026/03/23 12:42:18 PM]  - Inserted 2 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:18 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:18 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:18 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:18 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+236 rows, 261 columns, 424 non-zeros
+261 integer variables, all of which are binary
+Preprocessing...
+118 rows, 261 columns, 424 non-zeros
+261 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 118
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+118 rows, 261 columns, 424 non-zeros
+*     0: obj =   7.095740393e+02 inf =   0.000e+00 (118)
+*   108: obj =   1.524290713e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++   108: mip =     not found yet >=              -inf        (1; 0)
++   110: >>>>>   1.568228986e+02 >=   1.540886719e+02   1.7% (3; 0)
++   113: >>>>>   1.560639398e+02 >=   1.560639398e+02   0.0% (1; 3)
++   113: mip =   1.560639398e+02 >=     tree is empty   0.0% (0; 5)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:18 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.FALSE_POSITIVE: 6 (of 59)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.LINK: 41 (of 64)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.DIVIDE: 0 (of 20)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.INITIALIZE_BORDER: 1 (of 1)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.INITIALIZE_FRONT: 6 (of 6)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.INITIALIZE_LAZY: 5 (of 52)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.TERMINATE_BACK: 5 (of 6)
+[INFO][2026/03/23 12:42:18 PM]  - Fates.TERMINATE_LAZY: 7 (of 53)
+[INFO][2026/03/23 12:42:18 PM]  - TOTAL: 261 hypotheses
+[INFO][2026/03/23 12:42:18 PM] Completed optimization with 18 tracks
+[INFO][2026/03/23 12:42:18 PM] Ending BayesianTracker session
+    [btrack] Found 18 tracks
+    [btrack] Tracks > 1 frame: 13 of 18
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/115 [00:00<?, ?it/s]Computing node attributes:  72%|███████▏  | 83/115 [00:00<00:00, 824.48it/s]Computing node attributes: 100%|██████████| 115/115 [00:00<00:00, 821.01it/s]
+Matching frames:   0%|          | 0/115 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 115/115 [00:00<00:00, 7328.13it/s]
+Evaluating nodes:   0%|          | 0/684 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 684/684 [00:00<00:00, 558369.78it/s]
+Evaluating FP edges:   0%|          | 0/654 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 654/654 [00:00<00:00, 589148.37it/s]
+Evaluating FN edges:   0%|          | 0/685 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 685/685 [00:00<00:00, 854325.97it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 154.0,
+                       'DET': 0.986271676300578,
+                       'LNK': 0.9425790754257908,
+                       'TRA': 0.9806228373702423,
+                       'fn_edges': 36,
+                       'fn_nodes': 8,
+                       'fp_edges': 5,
+                       'fp_nodes': 15,
+                       'ns_nodes': 0,
+                       'ws_edges': 0},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_btrack/res_track.txt
+      Saved 115 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/PhC-C2DH-U373/02_RES_btrack/merged_stack.tif: (115, 520, 696) uint16 (TYX)
+
+──────────────────────────────────────────────────────────────────────
+Dataset: DIC-C2DH-HeLa
+  2D+time: HeLa cells on a flat glass (DIC microscopy)
+  [skip] DIC-C2DH-HeLa already present at /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa
+
+  ── Sequence 01 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 9 GT + 84 ST frames, 84 TRA frames → 84 union frames
+    Merge result: 9 GT + 75 ST frames written, 0 skipped (no TRA), 1089 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_MERGED_SEG/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 84 frames → shape (84, 512, 512), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1341.65it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1056.47it/s]
+    GT nodes: 1120, GT edges: 1100
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1387.64it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1047.63it/s]
+[INFO][2026/03/23 12:42:19 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:19 PM] Localizing objects from segmentation...
+    GT nodes: 1120, GT edges: 1100
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (84, 512, 512)
+[TRACKING] 2D+T data: T=84, Y=512, X=512
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:  21%|██▏       | 18/84 [00:00<00:00, 173.24it/s]progress:  43%|████▎     | 36/84 [00:00<00:00, 168.12it/s]progress:  63%|██████▎   | 53/84 [00:00<00:00, 160.58it/s]progress:  83%|████████▎ | 70/84 [00:00<00:00, 157.80it/s]progress: 100%|██████████| 84/84 [00:00<00:00, 154.98it/s]
+[INFO][2026/03/23 12:42:20 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:20 PM] ...Found 1089 objects in 84 frames.
+[INFO][2026/03/23 12:42:20 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:20 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:20 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:20 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:20 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:20 PM] Tracking objects in frames 0 to 84 (of 84)...
+[INFO][2026/03/23 12:42:20 PM]  - Timing (Bayesian updates: 0.13ms, Linking: 0.04ms)
+[INFO][2026/03/23 12:42:20 PM]  - Probabilities (Link: 0.96350, Lost: 0.93378)
+[INFO][2026/03/23 12:42:20 PM] SUCCESS.
+[INFO][2026/03/23 12:42:20 PM]  - Found 88 tracks in 84 frames (in 0.0s)
+[INFO][2026/03/23 12:42:20 PM]  - Inserted 26 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:20 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:20 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:20 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:20 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+352 rows, 298 columns, 428 non-zeros
+298 integer variables, all of which are binary
+Preprocessing...
+176 rows, 298 columns, 428 non-zeros
+298 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 176
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+176 rows, 298 columns, 428 non-zeros
+*     0: obj =   1.242037617e+02 inf =   0.000e+00 (46)
+*    41: obj =   9.012087611e+01 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++    41: mip =     not found yet >=              -inf        (1; 0)
++    44: >>>>>   9.042100430e+01 >=   9.042100430e+01   0.0% (4; 0)
++    44: mip =   9.042100430e+01 >=     tree is empty   0.0% (0; 7)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:20 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.FALSE_POSITIVE: 16 (of 88)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.LINK: 6 (of 26)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.DIVIDE: 5 (of 8)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.INITIALIZE_BORDER: 16 (of 29)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.INITIALIZE_FRONT: 30 (of 38)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.INITIALIZE_LAZY: 10 (of 21)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.TERMINATE_BORDER: 5 (of 9)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.TERMINATE_BACK: 46 (of 59)
+[INFO][2026/03/23 12:42:20 PM]  - Fates.TERMINATE_LAZY: 10 (of 20)
+[INFO][2026/03/23 12:42:20 PM]  - TOTAL: 298 hypotheses
+[INFO][2026/03/23 12:42:20 PM] Completed optimization with 82 tracks
+[INFO][2026/03/23 12:42:20 PM] Ending BayesianTracker session
+[TRACKING] Found 1089 objects
+[TRACKING] Volume: ((0, 512), (0, 512))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 82 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 82
+  Tracks > 1 frame: 61
+  Tracks > 5 frames: 38
+  Tracks > 10 frames: 29
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes:  52%|█████▏    | 44/84 [00:00<00:00, 439.49it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 408.22it/s]
+Matching frames:   0%|          | 0/84 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 84/84 [00:00<00:00, 2969.64it/s]
+Evaluating nodes:   0%|          | 0/1087 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1087/1087 [00:00<00:00, 583168.13it/s]
+Evaluating FP edges:   0%|          | 0/983 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 983/983 [00:00<00:00, 483749.95it/s]
+Evaluating FN edges:   0%|          | 0/1100 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 1100/1100 [00:00<00:00, 951677.89it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 698.0,
+                       'DET': 0.95625,
+                       'LNK': 0.8739393939393939,
+                       'TRA': 0.94568093385214,
+                       'fn_edges': 128,
+                       'fn_nodes': 33,
+                       'fp_edges': 11,
+                       'fp_nodes': 160,
+                       'ns_nodes': 0,
+                       'ws_edges': 5},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_easytrack/res_track.txt
+      Saved 84 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_easytrack/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1354.15it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1023.35it/s]
+[INFO][2026/03/23 12:42:21 PM] Localizing objects from segmentation...
+    GT nodes: 1120, GT edges: 1100
+progress:  23%|██▎       | 19/84 [00:00<00:00, 182.47it/s]progress:  45%|████▌     | 38/84 [00:00<00:00, 176.25it/s]progress:  67%|██████▋   | 56/84 [00:00<00:00, 163.24it/s]progress:  87%|████████▋ | 73/84 [00:00<00:00, 157.03it/s]progress: 100%|██████████| 84/84 [00:00<00:00, 156.45it/s]
+[INFO][2026/03/23 12:42:21 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:21 PM] ...Found 1089 objects in 84 frames.
+[INFO][2026/03/23 12:42:21 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:21 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:21 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:21 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:21 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:21 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:21 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:21 PM] Tracking objects in frames 0 to 84 (of 84)...
+[INFO][2026/03/23 12:42:21 PM]  - Timing (Bayesian updates: 0.36ms, Linking: 0.09ms)
+[INFO][2026/03/23 12:42:21 PM]  - Probabilities (Link: 0.75387, Lost: 0.99986)
+[INFO][2026/03/23 12:42:21 PM] SUCCESS.
+[INFO][2026/03/23 12:42:21 PM]  - Found 471 tracks in 84 frames (in 0.0s)
+[INFO][2026/03/23 12:42:21 PM]  - Inserted 5 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:21 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:21 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:21 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:21 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+1884 rows, 2171 columns, 3563 non-zeros
+2171 integer variables, all of which are binary
+Preprocessing...
+942 rows, 2171 columns, 3563 non-zeros
+2171 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 942
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+942 rows, 2171 columns, 3563 non-zeros
+*     0: obj =   5.853055943e+03 inf =   0.000e+00 (1189)
+Perturbing LP to avoid stalling [455]...
+Removing LP perturbation [1155]...
+*  1155: obj =   8.387540120e+02 inf =   0.000e+00 (0) 1
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++  1155: mip =     not found yet >=              -inf        (1; 0)
++  1162: >>>>>   8.474286088e+02 >=   8.443443078e+02   0.4% (6; 0)
++  1170: mip =   8.474286088e+02 >=     tree is empty   0.0% (0; 11)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:21 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.FALSE_POSITIVE: 78 (of 471)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.LINK: 354 (of 595)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.DIVIDE: 10 (of 163)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.INITIALIZE_FRONT: 10 (of 24)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.INITIALIZE_LAZY: 9 (of 447)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.TERMINATE_BACK: 23 (of 48)
+[INFO][2026/03/23 12:42:21 PM]  - Fates.TERMINATE_LAZY: 6 (of 423)
+[INFO][2026/03/23 12:42:21 PM]  - TOTAL: 2171 hypotheses
+[INFO][2026/03/23 12:42:21 PM] Completed optimization with 117 tracks
+[INFO][2026/03/23 12:42:21 PM] Ending BayesianTracker session
+    [btrack] Found 117 tracks
+    [btrack] Tracks > 1 frame: 32 of 117
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes:  57%|█████▋    | 48/84 [00:00<00:00, 475.71it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 448.06it/s]
+Matching frames:   0%|          | 0/84 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 84/84 [00:00<00:00, 3049.77it/s]
+Evaluating nodes:   0%|          | 0/1087 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1087/1087 [00:00<00:00, 532120.50it/s]
+Evaluating FP edges:   0%|          | 0/934 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 934/934 [00:00<00:00, 515933.09it/s]
+Evaluating FN edges:   0%|          | 0/1100 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 1100/1100 [00:00<00:00, 931503.01it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 672.5,
+                       'DET': 0.9652678571428571,
+                       'LNK': 0.8281818181818181,
+                       'TRA': 0.9476653696498054,
+                       'fn_edges': 175,
+                       'fn_nodes': 33,
+                       'fp_edges': 9,
+                       'fp_nodes': 59,
+                       'ns_nodes': 0,
+                       'ws_edges': 12},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_btrack/res_track.txt
+      Saved 84 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/01_RES_btrack/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+
+  ── Sequence 02 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 9 GT + 84 ST frames, 84 TRA frames → 84 union frames
+    Merge result: 9 GT + 75 ST frames written, 0 skipped (no TRA), 986 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_MERGED_SEG/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 84 frames → shape (84, 512, 512), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1401.51it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1089.21it/s]
+    GT nodes: 1030, GT edges: 1011
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1458.72it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1104.81it/s]
+[INFO][2026/03/23 12:42:23 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:23 PM] Localizing objects from segmentation...
+    GT nodes: 1030, GT edges: 1011
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (84, 512, 512)
+[TRACKING] 2D+T data: T=84, Y=512, X=512
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:  21%|██▏       | 18/84 [00:00<00:00, 174.29it/s]progress:  43%|████▎     | 36/84 [00:00<00:00, 166.13it/s]progress:  63%|██████▎   | 53/84 [00:00<00:00, 156.40it/s]progress:  82%|████████▏ | 69/84 [00:00<00:00, 147.92it/s]progress: 100%|██████████| 84/84 [00:00<00:00, 143.61it/s]progress: 100%|██████████| 84/84 [00:00<00:00, 149.84it/s]
+[INFO][2026/03/23 12:42:24 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:24 PM] ...Found 995 objects in 84 frames.
+[INFO][2026/03/23 12:42:24 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:24 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:24 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:24 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:24 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:24 PM] Tracking objects in frames 0 to 84 (of 84)...
+[INFO][2026/03/23 12:42:24 PM]  - Timing (Bayesian updates: 0.12ms, Linking: 0.04ms)
+[INFO][2026/03/23 12:42:24 PM]  - Probabilities (Link: 0.68662, Lost: 0.82230)
+[INFO][2026/03/23 12:42:24 PM] SUCCESS.
+[INFO][2026/03/23 12:42:24 PM]  - Found 63 tracks in 84 frames (in 0.0s)
+[INFO][2026/03/23 12:42:24 PM]  - Inserted 17 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:24 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:24 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:24 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:24 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+252 rows, 212 columns, 308 non-zeros
+212 integer variables, all of which are binary
+Preprocessing...
+126 rows, 212 columns, 308 non-zeros
+212 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 126
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+126 rows, 212 columns, 308 non-zeros
+*     0: obj =   8.611894390e+01 inf =   0.000e+00 (40)
+*    33: obj =   5.973257425e+01 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++    33: mip =     not found yet >=              -inf        (1; 0)
++    33: >>>>>   5.973257425e+01 >=   5.973257425e+01   0.0% (1; 0)
++    33: mip =   5.973257425e+01 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:24 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.FALSE_POSITIVE: 25 (of 63)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.LINK: 0 (of 13)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.DIVIDE: 2 (of 10)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.INITIALIZE_BORDER: 13 (of 22)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.INITIALIZE_FRONT: 10 (of 23)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.INITIALIZE_LAZY: 11 (of 18)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.TERMINATE_BORDER: 3 (of 15)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.TERMINATE_BACK: 33 (of 46)
+[INFO][2026/03/23 12:42:24 PM]  - Fates.TERMINATE_LAZY: 0 (of 2)
+[INFO][2026/03/23 12:42:24 PM]  - TOTAL: 212 hypotheses
+[INFO][2026/03/23 12:42:24 PM] Completed optimization with 63 tracks
+[INFO][2026/03/23 12:42:24 PM] Ending BayesianTracker session
+[TRACKING] Found 995 objects
+[TRACKING] Volume: ((0, 512), (0, 512))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 63 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 63
+  Tracks > 1 frame: 36
+  Tracks > 5 frames: 30
+  Tracks > 10 frames: 26
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes:  50%|█████     | 42/84 [00:00<00:00, 414.59it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 394.86it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 397.50it/s]
+Matching frames:   0%|          | 0/84 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 84/84 [00:00<00:00, 2216.35it/s]
+Evaluating nodes:   0%|          | 0/986 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 986/986 [00:00<00:00, 573589.98it/s]
+Evaluating FP edges:   0%|          | 0/905 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 905/905 [00:00<00:00, 526469.50it/s]
+Evaluating FN edges:   0%|          | 0/1011 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 1011/1011 [00:00<00:00, 937943.23it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 640.5,
+                       'DET': 0.954757281553398,
+                       'LNK': 0.884932410154962,
+                       'TRA': 0.9457961325265518,
+                       'fn_edges': 111,
+                       'fn_nodes': 44,
+                       'fp_edges': 5,
+                       'fp_nodes': 26,
+                       'ns_nodes': 0,
+                       'ws_edges': 3},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_easytrack/res_track.txt
+      Saved 84 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_easytrack/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/83 [00:00<?, ?it/s]Loading TIFFs: 100%|██████████| 83/83 [00:00<00:00, 1310.95it/s]
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 1062.31it/s]
+[INFO][2026/03/23 12:42:24 PM] Localizing objects from segmentation...
+    GT nodes: 1030, GT edges: 1011
+progress:  19%|█▉        | 16/84 [00:00<00:00, 153.29it/s]progress:  38%|███▊      | 32/84 [00:00<00:00, 153.39it/s]progress:  57%|█████▋    | 48/84 [00:00<00:00, 153.07it/s]progress:  76%|███████▌  | 64/84 [00:00<00:00, 147.18it/s]progress:  94%|█████████▍| 79/84 [00:00<00:00, 141.80it/s]progress: 100%|██████████| 84/84 [00:00<00:00, 144.40it/s]
+[INFO][2026/03/23 12:42:25 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:25 PM] ...Found 995 objects in 84 frames.
+[INFO][2026/03/23 12:42:25 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:25 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:25 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:25 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:25 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:25 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:25 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:25 PM] Tracking objects in frames 0 to 84 (of 84)...
+[INFO][2026/03/23 12:42:25 PM]  - Timing (Bayesian updates: 0.32ms, Linking: 0.09ms)
+[INFO][2026/03/23 12:42:25 PM]  - Probabilities (Link: 0.96553, Lost: 0.70682)
+[INFO][2026/03/23 12:42:25 PM] SUCCESS.
+[INFO][2026/03/23 12:42:25 PM]  - Found 358 tracks in 84 frames (in 0.0s)
+[INFO][2026/03/23 12:42:25 PM]  - Inserted 3 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:25 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:25 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:25 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:25 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+1432 rows, 1551 columns, 2464 non-zeros
+1551 integer variables, all of which are binary
+Preprocessing...
+716 rows, 1551 columns, 2464 non-zeros
+1551 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 716
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+716 rows, 1551 columns, 2464 non-zeros
+*     0: obj =   4.430693240e+03 inf =   0.000e+00 (788)
+Perturbing LP to avoid stalling [454]...
+Removing LP perturbation [774]...
+*   774: obj =   5.865485661e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++   774: mip =     not found yet >=              -inf        (1; 0)
++   775: >>>>>   5.874523085e+02 >=   5.874523085e+02   0.0% (2; 0)
++   775: mip =   5.874523085e+02 >=     tree is empty   0.0% (0; 3)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:25 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.FALSE_POSITIVE: 44 (of 358)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.LINK: 285 (of 399)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.DIVIDE: 5 (of 78)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.INITIALIZE_FRONT: 10 (of 18)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.INITIALIZE_LAZY: 9 (of 340)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.TERMINATE_BORDER: 0 (of 1)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.TERMINATE_BACK: 20 (of 38)
+[INFO][2026/03/23 12:42:25 PM]  - Fates.TERMINATE_LAZY: 4 (of 319)
+[INFO][2026/03/23 12:42:25 PM]  - TOTAL: 1551 hypotheses
+[INFO][2026/03/23 12:42:25 PM] Completed optimization with 73 tracks
+[INFO][2026/03/23 12:42:25 PM] Ending BayesianTracker session
+    [btrack] Found 73 tracks
+    [btrack] Tracks > 1 frame: 26 of 73
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/84 [00:00<?, ?it/s]Computing node attributes:  55%|█████▍    | 46/84 [00:00<00:00, 459.50it/s]Computing node attributes: 100%|██████████| 84/84 [00:00<00:00, 425.63it/s]
+Matching frames:   0%|          | 0/84 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 84/84 [00:00<00:00, 2429.44it/s]
+Evaluating nodes:   0%|          | 0/986 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 986/986 [00:00<00:00, 583380.41it/s]
+Evaluating FP edges:   0%|          | 0/891 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 891/891 [00:00<00:00, 542634.65it/s]
+Evaluating FN edges:   0%|          | 0/1011 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 1011/1011 [00:00<00:00, 956562.45it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 679.5,
+                       'DET': 0.9537864077669903,
+                       'LNK': 0.8658094296076492,
+                       'TRA': 0.9424956628443278,
+                       'fn_edges': 127,
+                       'fn_nodes': 44,
+                       'fp_edges': 7,
+                       'fp_nodes': 36,
+                       'ns_nodes': 0,
+                       'ws_edges': 6},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_btrack/res_track.txt
+      Saved 84 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/DIC-C2DH-HeLa/02_RES_btrack/merged_stack.tif: (84, 512, 512) uint16 (TYX)
+
+──────────────────────────────────────────────────────────────────────
+Dataset: Fluo-N2DH-GOWT1
+  2D+time: GFP-GOWT1 mouse stem cells (fluorescence)
+  [skip] Fluo-N2DH-GOWT1 already present at /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1
+
+  ── Sequence 01 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 30 GT + 92 ST frames, 92 TRA frames → 92 union frames
+    Merge result: 30 GT + 62 ST frames written, 0 skipped (no TRA), 1492 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_MERGED_SEG/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 92 frames → shape (92, 1024, 1024), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  36%|███▋      | 33/91 [00:00<00:00, 323.00it/s]Loading TIFFs:  73%|███████▎  | 66/91 [00:00<00:00, 260.50it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 293.34it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  28%|██▊       | 26/92 [00:00<00:00, 251.21it/s]Computing node attributes:  60%|█████▉    | 55/92 [00:00<00:00, 272.05it/s]Computing node attributes:  93%|█████████▎| 86/92 [00:00<00:00, 286.99it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 281.61it/s]
+    GT nodes: 2058, GT edges: 2035
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  34%|███▍      | 31/91 [00:00<00:00, 303.10it/s]Loading TIFFs:  78%|███████▊  | 71/91 [00:00<00:00, 355.28it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 353.00it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  28%|██▊       | 26/92 [00:00<00:00, 256.42it/s]Computing node attributes:  57%|█████▋    | 52/92 [00:00<00:00, 258.21it/s]Computing node attributes:  87%|████████▋ | 80/92 [00:00<00:00, 265.99it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 266.48it/s]
+[INFO][2026/03/23 12:42:31 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:31 PM] Localizing objects from segmentation...
+    GT nodes: 2058, GT edges: 2035
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (92, 1024, 1024)
+[TRACKING] 2D+T data: T=92, Y=1024, X=1024
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:  11%|█         | 10/92 [00:00<00:00, 91.24it/s]progress:  24%|██▍       | 22/92 [00:00<00:00, 101.47it/s]progress:  36%|███▌      | 33/92 [00:00<00:00, 93.27it/s] progress:  47%|████▋     | 43/92 [00:00<00:00, 90.66it/s]progress:  58%|█████▊    | 53/92 [00:00<00:00, 89.23it/s]progress:  67%|██████▋   | 62/92 [00:00<00:00, 83.96it/s]progress:  77%|███████▋  | 71/92 [00:00<00:00, 80.35it/s]progress:  87%|████████▋ | 80/92 [00:00<00:00, 80.89it/s]progress:  97%|█████████▋| 89/92 [00:01<00:00, 81.15it/s]progress: 100%|██████████| 92/92 [00:01<00:00, 85.20it/s]
+[INFO][2026/03/23 12:42:32 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:32 PM] ...Found 1492 objects in 92 frames.
+[INFO][2026/03/23 12:42:32 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:32 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:32 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:32 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:32 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:32 PM] Tracking objects in frames 0 to 92 (of 92)...
+[INFO][2026/03/23 12:42:32 PM]  - Timing (Bayesian updates: 0.15ms, Linking: 0.04ms)
+[INFO][2026/03/23 12:42:32 PM]  - Probabilities (Link: 0.97250, Lost: 1.00000)
+[INFO][2026/03/23 12:42:32 PM] SUCCESS.
+[INFO][2026/03/23 12:42:32 PM]  - Found 139 tracks in 92 frames (in 0.0s)
+[INFO][2026/03/23 12:42:32 PM]  - Inserted 135 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:32 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:32 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:32 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:32 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+556 rows, 744 columns, 1345 non-zeros
+744 integer variables, all of which are binary
+Preprocessing...
+278 rows, 744 columns, 1345 non-zeros
+744 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 278
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+278 rows, 744 columns, 1345 non-zeros
+*     0: obj =   2.511309108e+02 inf =   0.000e+00 (347)
+*   248: obj =   9.922348230e+01 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++   248: mip =     not found yet >=              -inf        (1; 0)
++   249: >>>>>   9.930173655e+01 >=   9.930173655e+01   0.0% (2; 0)
++   249: mip =   9.930173655e+01 >=     tree is empty   0.0% (0; 3)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:32 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.FALSE_POSITIVE: 2 (of 139)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.LINK: 68 (of 192)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.DIVIDE: 19 (of 135)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.INITIALIZE_BORDER: 0 (of 5)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.INITIALIZE_FRONT: 30 (of 112)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.INITIALIZE_LAZY: 1 (of 22)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.TERMINATE_BORDER: 4 (of 14)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.TERMINATE_BACK: 24 (of 27)
+[INFO][2026/03/23 12:42:32 PM]  - Fates.TERMINATE_LAZY: 22 (of 98)
+[INFO][2026/03/23 12:42:32 PM]  - TOTAL: 744 hypotheses
+[INFO][2026/03/23 12:42:32 PM] Completed optimization with 71 tracks
+[INFO][2026/03/23 12:42:32 PM] Ending BayesianTracker session
+[TRACKING] Found 1492 objects
+[TRACKING] Volume: ((0, 1024), (0, 1024))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 71 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 71
+  Tracks > 1 frame: 69
+  Tracks > 5 frames: 50
+  Tracks > 10 frames: 32
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  27%|██▋       | 25/92 [00:00<00:00, 248.47it/s]Computing node attributes:  54%|█████▍    | 50/92 [00:00<00:00, 233.02it/s]Computing node attributes:  80%|████████  | 74/92 [00:00<00:00, 210.89it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 217.78it/s]
+Matching frames:   0%|          | 0/92 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 92/92 [00:00<00:00, 3788.52it/s]
+Evaluating nodes:   0%|          | 0/1492 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1492/1492 [00:00<00:00, 540172.77it/s]
+Evaluating FP edges:   0%|          | 0/1256 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 1256/1256 [00:00<00:00, 516677.70it/s]
+Evaluating FN edges:   0%|          | 0/2035 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 2035/2035 [00:00<00:00, 1085377.50it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 7348.5,
+                       'DET': 0.7046161321671526,
+                       'LNK': 0.5841113841113841,
+                       'TRA': 0.689051094890511,
+                       'fn_edges': 819,
+                       'fn_nodes': 566,
+                       'fp_edges': 40,
+                       'fp_nodes': 419,
+                       'ns_nodes': 0,
+                       'ws_edges': 1},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_easytrack/res_track.txt
+      Saved 92 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_easytrack/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  37%|███▋      | 34/91 [00:00<00:00, 334.09it/s]Loading TIFFs:  75%|███████▍  | 68/91 [00:00<00:00, 307.57it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 328.70it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  24%|██▍       | 22/92 [00:00<00:00, 208.18it/s]Computing node attributes:  52%|█████▏    | 48/92 [00:00<00:00, 236.08it/s]Computing node attributes:  82%|████████▏ | 75/92 [00:00<00:00, 248.18it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 246.81it/s]
+[INFO][2026/03/23 12:42:35 PM] Localizing objects from segmentation...
+    GT nodes: 2058, GT edges: 2035
+progress:  12%|█▏        | 11/92 [00:00<00:00, 103.78it/s]progress:  24%|██▍       | 22/92 [00:00<00:00, 100.44it/s]progress:  36%|███▌      | 33/92 [00:00<00:00, 89.15it/s] progress:  47%|████▋     | 43/92 [00:00<00:00, 89.47it/s]progress:  59%|█████▊    | 54/92 [00:00<00:00, 93.18it/s]progress:  70%|██████▉   | 64/92 [00:00<00:00, 88.52it/s]progress:  79%|███████▉  | 73/92 [00:00<00:00, 82.93it/s]progress:  89%|████████▉ | 82/92 [00:00<00:00, 84.00it/s]progress:  99%|█████████▉| 91/92 [00:01<00:00, 82.87it/s]progress: 100%|██████████| 92/92 [00:01<00:00, 87.06it/s]
+[INFO][2026/03/23 12:42:36 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:36 PM] ...Found 1492 objects in 92 frames.
+[INFO][2026/03/23 12:42:36 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:36 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:36 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:36 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:36 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:36 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:36 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:36 PM] Tracking objects in frames 0 to 92 (of 92)...
+[INFO][2026/03/23 12:42:36 PM]  - Timing (Bayesian updates: 0.17ms, Linking: 0.04ms)
+[INFO][2026/03/23 12:42:36 PM]  - Probabilities (Link: 1.00000, Lost: 1.00000)
+[INFO][2026/03/23 12:42:36 PM] SUCCESS.
+[INFO][2026/03/23 12:42:36 PM]  - Found 236 tracks in 92 frames (in 0.0s)
+[INFO][2026/03/23 12:42:36 PM]  - Inserted 43 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:36 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:36 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:36 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:36 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+944 rows, 815 columns, 1162 non-zeros
+815 integer variables, all of which are binary
+Preprocessing...
+472 rows, 815 columns, 1162 non-zeros
+815 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 472
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+472 rows, 815 columns, 1162 non-zeros
+*     0: obj =   2.825942172e+03 inf =   0.000e+00 (281)
+*   319: obj =   1.194479313e+03 inf =   4.441e-16 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++   319: mip =     not found yet >=              -inf        (1; 0)
++   319: >>>>>   1.194479313e+03 >=   1.194479313e+03   0.0% (1; 0)
++   319: mip =   1.194479313e+03 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:36 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.FALSE_POSITIVE: 71 (of 236)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.LINK: 74 (of 103)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.DIVIDE: 0 (of 4)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.INITIALIZE_FRONT: 23 (of 29)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.INITIALIZE_LAZY: 68 (of 207)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.TERMINATE_BACK: 21 (of 22)
+[INFO][2026/03/23 12:42:36 PM]  - Fates.TERMINATE_LAZY: 70 (of 214)
+[INFO][2026/03/23 12:42:36 PM]  - TOTAL: 815 hypotheses
+[INFO][2026/03/23 12:42:36 PM] Completed optimization with 162 tracks
+[INFO][2026/03/23 12:42:36 PM] Ending BayesianTracker session
+    [btrack] Found 162 tracks
+    [btrack] Tracks > 1 frame: 117 of 162
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  24%|██▍       | 22/92 [00:00<00:00, 200.78it/s]Computing node attributes:  47%|████▋     | 43/92 [00:00<00:00, 196.52it/s]Computing node attributes:  68%|██████▊   | 63/92 [00:00<00:00, 191.45it/s]Computing node attributes:  90%|█████████ | 83/92 [00:00<00:00, 173.12it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 178.08it/s]
+Matching frames:   0%|          | 0/92 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 92/92 [00:00<00:00, 3476.30it/s]
+Evaluating nodes:   0%|          | 0/1492 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1492/1492 [00:00<00:00, 548986.89it/s]
+Evaluating FP edges:   0%|          | 0/1219 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 1219/1219 [00:00<00:00, 485643.67it/s]
+Evaluating FN edges:   0%|          | 0/2035 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 2035/2035 [00:00<00:00, 1001103.52it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 6998.5,
+                       'DET': 0.7195821185617104,
+                       'LNK': 0.5978705978705978,
+                       'TRA': 0.7038612080820903,
+                       'fn_edges': 817,
+                       'fn_nodes': 566,
+                       'fp_edges': 1,
+                       'fp_nodes': 111,
+                       'ns_nodes': 0,
+                       'ws_edges': 1},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_btrack/res_track.txt
+      Saved 92 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/01_RES_btrack/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+
+  ── Sequence 02 ──
+    GT dir: /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_GT/TRA
+    Merging GT + ST segmentation …
+    Merge: 20 GT + 92 ST frames, 92 TRA frames → 92 union frames
+    Merge result: 20 GT + 72 ST frames written, 0 skipped (no TRA), 1907 cells relabelled, 0 dropped
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_MERGED_SEG/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+    Loading segmentation (GT + ST merged) …
+    Loaded 92 frames → shape (92, 1024, 1024), dtype uint16
+    Loading GT tracking graph …
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  37%|███▋      | 34/91 [00:00<00:00, 334.67it/s]Loading TIFFs:  78%|███████▊  | 71/91 [00:00<00:00, 352.20it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 355.15it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  24%|██▍       | 22/92 [00:00<00:00, 216.11it/s]Computing node attributes:  49%|████▉     | 45/92 [00:00<00:00, 219.44it/s]Computing node attributes:  76%|███████▌  | 70/92 [00:00<00:00, 232.27it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 229.50it/s]
+    GT nodes: 2517, GT edges: 2472
+
+    ▸ easytrack (preset: 'Epithelial Cells (Default)')
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  34%|███▍      | 31/91 [00:00<00:00, 280.49it/s]Loading TIFFs:  68%|██████▊   | 62/91 [00:00<00:00, 293.65it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 300.59it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  27%|██▋       | 25/92 [00:00<00:00, 241.44it/s]Computing node attributes:  54%|█████▍    | 50/92 [00:00<00:00, 238.25it/s]Computing node attributes:  82%|████████▏ | 75/92 [00:00<00:00, 240.69it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 239.23it/s]
+[INFO][2026/03/23 12:42:43 PM] Loading configuration file: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[INFO][2026/03/23 12:42:43 PM] Localizing objects from segmentation...
+    GT nodes: 2517, GT edges: 2472
+
+============================================================
+RUNNING TRACKING WITH OPTIMIZED PARAMETERS
+============================================================
+[TRACKING] Starting with segmentation shape: (92, 1024, 1024)
+[TRACKING] 2D+T data: T=92, Y=1024, X=1024
+[TRACKING] Loading base config: /Users/tim/Documents/github_repositories/tracking-widgets/src/napari_easytrack/configs/cell_config.json
+[TRACKING] Extracting objects...
+progress:   8%|▊         | 7/92 [00:00<00:01, 62.68it/s]progress:  15%|█▌        | 14/92 [00:00<00:01, 64.76it/s]progress:  23%|██▎       | 21/92 [00:00<00:01, 66.31it/s]progress:  33%|███▎      | 30/92 [00:00<00:00, 74.64it/s]progress:  41%|████▏     | 38/92 [00:00<00:00, 75.26it/s]progress:  50%|█████     | 46/92 [00:00<00:00, 74.74it/s]progress:  59%|█████▊    | 54/92 [00:00<00:00, 73.85it/s]progress:  67%|██████▋   | 62/92 [00:00<00:00, 71.85it/s]progress:  76%|███████▌  | 70/92 [00:00<00:00, 71.44it/s]progress:  85%|████████▍ | 78/92 [00:01<00:00, 68.11it/s]progress:  92%|█████████▏| 85/92 [00:01<00:00, 67.45it/s]progress: 100%|██████████| 92/92 [00:01<00:00, 70.53it/s]
+[INFO][2026/03/23 12:42:45 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:45 PM] ...Found 1907 objects in 92 frames.
+[INFO][2026/03/23 12:42:45 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:45 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:45 PM] Objects are of type: <class 'list'>
+[INFO][2026/03/23 12:42:45 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:45 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:45 PM] Tracking objects in frames 0 to 92 (of 92)...
+[INFO][2026/03/23 12:42:45 PM]  - Timing (Bayesian updates: 0.01ms, Linking: 0.03ms)
+[INFO][2026/03/23 12:42:45 PM]  - Probabilities (Link: 0.97581, Lost: 1.00000)
+[INFO][2026/03/23 12:42:45 PM] SUCCESS.
+[INFO][2026/03/23 12:42:45 PM]  - Found 89 tracks in 92 frames (in 0.0s)
+[INFO][2026/03/23 12:42:45 PM]  - Inserted 220 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:45 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:45 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:45 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:45 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+356 rows, 325 columns, 479 non-zeros
+325 integer variables, all of which are binary
+Preprocessing...
+178 rows, 325 columns, 479 non-zeros
+325 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 178
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+178 rows, 325 columns, 479 non-zeros
+*     0: obj =   1.513859664e+02 inf =   0.000e+00 (62)
+*    61: obj =   7.388529958e+01 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++    61: mip =     not found yet >=              -inf        (1; 0)
++    61: >>>>>   7.388529958e+01 >=   7.388529958e+01   0.0% (1; 0)
++    61: mip =   7.388529958e+01 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:45 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.FALSE_POSITIVE: 5 (of 89)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.LINK: 36 (of 51)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.DIVIDE: 2 (of 7)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.INITIALIZE_BORDER: 2 (of 4)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.INITIALIZE_FRONT: 33 (of 55)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.INITIALIZE_LAZY: 9 (of 30)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.TERMINATE_BORDER: 3 (of 5)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.TERMINATE_BACK: 33 (of 34)
+[INFO][2026/03/23 12:42:45 PM]  - Fates.TERMINATE_LAZY: 10 (of 50)
+[INFO][2026/03/23 12:42:45 PM]  - TOTAL: 325 hypotheses
+[INFO][2026/03/23 12:42:45 PM] Completed optimization with 53 tracks
+[INFO][2026/03/23 12:42:45 PM] Ending BayesianTracker session
+[TRACKING] Found 1907 objects
+[TRACKING] Volume: ((0, 1024), (0, 1024))
+[TRACKING] Applying optimized parameters...
+[TRACKING] max_search_radius: 333
+[TRACKING] Running btrack...
+[TRACKING] Found 53 tracks
+[TRACKING] Complete!
+
+Tracking Statistics:
+  Total tracks: 53
+  Tracks > 1 frame: 48
+  Tracks > 5 frames: 41
+  Tracks > 10 frames: 38
+============================================================
+
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  26%|██▌       | 24/92 [00:00<00:00, 237.39it/s]Computing node attributes:  52%|█████▏    | 48/92 [00:00<00:00, 223.26it/s]Computing node attributes:  78%|███████▊  | 72/92 [00:00<00:00, 228.23it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 230.23it/s]
+Matching frames:   0%|          | 0/92 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 92/92 [00:00<00:00, 2969.28it/s]
+Evaluating nodes:   0%|          | 0/1906 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1906/1906 [00:00<00:00, 558888.66it/s]
+Evaluating FP edges:   0%|          | 0/1601 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 1601/1601 [00:00<00:00, 524615.68it/s]
+Evaluating FN edges:   0%|          | 0/2472 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 2472/2472 [00:00<00:00, 1059180.66it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 7754.0,
+                       'DET': 0.7443384982121573,
+                       'LNK': 0.6442826321467099,
+                       'TRA': 0.7314911004917237,
+                       'fn_edges': 876,
+                       'fn_nodes': 611,
+                       'fp_edges': 5,
+                       'fp_nodes': 325,
+                       'ns_nodes': 0,
+                       'ws_edges': 0},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_easytrack/res_track.txt
+      Saved 92 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_easytrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_easytrack/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+
+    ▸ btrack baseline (default cell_config)
+Loading TIFFs:   0%|          | 0/91 [00:00<?, ?it/s]Loading TIFFs:  46%|████▌     | 42/91 [00:00<00:00, 411.74it/s]Loading TIFFs:  92%|█████████▏| 84/91 [00:00<00:00, 401.60it/s]Loading TIFFs: 100%|██████████| 91/91 [00:00<00:00, 402.07it/s]
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  25%|██▌       | 23/92 [00:00<00:00, 229.24it/s]Computing node attributes:  59%|█████▊    | 54/92 [00:00<00:00, 275.65it/s]Computing node attributes:  91%|█████████▏| 84/92 [00:00<00:00, 284.65it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 279.84it/s]
+[INFO][2026/03/23 12:42:47 PM] Localizing objects from segmentation...
+    GT nodes: 2517, GT edges: 2472
+progress:   9%|▊         | 8/92 [00:00<00:01, 78.50it/s]progress:  17%|█▋        | 16/92 [00:00<00:01, 75.48it/s]progress:  26%|██▌       | 24/92 [00:00<00:00, 76.74it/s]progress:  37%|███▋      | 34/92 [00:00<00:00, 81.40it/s]progress:  47%|████▋     | 43/92 [00:00<00:00, 82.34it/s]progress:  57%|█████▋    | 52/92 [00:00<00:00, 83.39it/s]progress:  66%|██████▋   | 61/92 [00:00<00:00, 81.12it/s]progress:  76%|███████▌  | 70/92 [00:00<00:00, 76.61it/s]progress:  85%|████████▍ | 78/92 [00:00<00:00, 75.74it/s]progress:  95%|█████████▍| 87/92 [00:01<00:00, 77.39it/s]progress: 100%|██████████| 92/92 [00:01<00:00, 78.86it/s]
+[INFO][2026/03/23 12:42:49 PM] Objects are of type: <class 'dict'>
+[INFO][2026/03/23 12:42:49 PM] ...Found 1907 objects in 92 frames.
+[INFO][2026/03/23 12:42:49 PM] Loaded btrack: /Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/btrack/libs/libtracker.dylib
+[INFO][2026/03/23 12:42:49 PM] Starting BayesianTracker session
+[INFO][2026/03/23 12:42:49 PM] Loading configuration file: /Users/tim/Library/Caches/btrack-examples/examples/cell_config.json
+[INFO][2026/03/23 12:42:49 PM] Objects are of type: <class 'list'>
+[WARNING][2026/03/23 12:42:49 PM] `track_interactive` will be deprecated. Use `track` instead.
+[INFO][2026/03/23 12:42:49 PM] Starting tracking... 
+[INFO][2026/03/23 12:42:49 PM] Update using: ['MOTION']
+[INFO][2026/03/23 12:42:49 PM] Tracking objects in frames 0 to 92 (of 92)...
+[INFO][2026/03/23 12:42:49 PM]  - Timing (Bayesian updates: 0.01ms, Linking: 0.05ms)
+[INFO][2026/03/23 12:42:49 PM]  - Probabilities (Link: 1.00000, Lost: 1.00000)
+[INFO][2026/03/23 12:42:49 PM] SUCCESS.
+[INFO][2026/03/23 12:42:49 PM]  - Found 148 tracks in 92 frames (in 0.0s)
+[INFO][2026/03/23 12:42:49 PM]  - Inserted 168 dummy objects to fill tracking gaps
+[INFO][2026/03/23 12:42:49 PM] Loading hypothesis model: cell_hypothesis
+[INFO][2026/03/23 12:42:49 PM] Calculating hypotheses (relax: True)...
+[INFO][2026/03/23 12:42:49 PM] Setting up constraints matrix for global optimisation...
+[INFO][2026/03/23 12:42:49 PM] Optimizing...
+GLPK Integer Optimizer 5.0
+592 rows, 504 columns, 712 non-zeros
+504 integer variables, all of which are binary
+Preprocessing...
+296 rows, 504 columns, 712 non-zeros
+504 integer variables, all of which are binary
+Scaling...
+ A: min|aij| =  1.000e+00  max|aij| =  1.000e+00  ratio =  1.000e+00
+Problem data seem to be well scaled
+Constructing initial basis...
+Size of triangular part is 296
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+296 rows, 504 columns, 712 non-zeros
+*     0: obj =   1.626026941e+03 inf =   0.000e+00 (104)
+*   110: obj =   8.066779378e+02 inf =   0.000e+00 (0)
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++   110: mip =     not found yet >=              -inf        (1; 0)
++   110: >>>>>   8.066779378e+02 >=   8.066779378e+02   0.0% (1; 0)
++   110: mip =   8.066779378e+02 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+[INFO][2026/03/23 12:42:49 PM] Optimization complete. (Solution: optimal)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.FALSE_POSITIVE: 18 (of 148)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.LINK: 54 (of 60)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.INITIALIZE_BORDER: 0 (of 1)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.INITIALIZE_FRONT: 22 (of 24)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.INITIALIZE_LAZY: 54 (of 123)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.TERMINATE_BORDER: 0 (of 1)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.TERMINATE_BACK: 26 (of 30)
+[INFO][2026/03/23 12:42:49 PM]  - Fates.TERMINATE_LAZY: 50 (of 117)
+[INFO][2026/03/23 12:42:49 PM]  - TOTAL: 504 hypotheses
+[INFO][2026/03/23 12:42:49 PM] Completed optimization with 94 tracks
+[INFO][2026/03/23 12:42:49 PM] Ending BayesianTracker session
+    [btrack] Found 94 tracks
+    [btrack] Tracks > 1 frame: 83 of 94
+    Building prediction graph …
+Computing node attributes:   0%|          | 0/92 [00:00<?, ?it/s]Computing node attributes:  27%|██▋       | 25/92 [00:00<00:00, 232.88it/s]Computing node attributes:  54%|█████▍    | 50/92 [00:00<00:00, 242.49it/s]Computing node attributes:  83%|████████▎ | 76/92 [00:00<00:00, 249.78it/s]Computing node attributes: 100%|██████████| 92/92 [00:00<00:00, 246.58it/s]
+Matching frames:   0%|          | 0/92 [00:00<?, ?it/s]/Users/tim/Documents/github_repositories/tracking-widgets/venv/lib/python3.12/site-packages/traccuracy/matchers/_ctc.py:94: UserWarning: 'res_boxes' and/or 'res_labels' are not provided, using 'regionprops' to get them
+  overlaps = get_labels_with_overlap(
+Matching frames: 100%|██████████| 92/92 [00:00<00:00, 2951.09it/s]
+Evaluating nodes:   0%|          | 0/1907 [00:00<?, ?it/s]Evaluating nodes: 100%|██████████| 1907/1907 [00:00<00:00, 573002.20it/s]
+Evaluating FP edges:   0%|          | 0/1596 [00:00<?, ?it/s]Evaluating FP edges: 100%|██████████| 1596/1596 [00:00<00:00, 491671.63it/s]
+Evaluating FN edges:   0%|          | 0/2472 [00:00<?, ?it/s]Evaluating FN edges: 100%|██████████| 2472/2472 [00:00<00:00, 1068348.22it/s]
+[   {   'gt': 'ground_truth',
+        'matcher': {'matching type': 'one-to-one', 'name': 'CTCMatcher'},
+        'metric': {   'e_weights': {'fn': 1.5, 'fp': 1, 'ws': 1},
+                      'name': 'CTCMetrics',
+                      'relax_skips_gt': False,
+                      'relax_skips_pred': False,
+                      'v_weights': {'fn': 10, 'fp': 1, 'ns': 5},
+                      'valid_match_types': ['one-to-one', 'many-to-one']},
+        'results': {   'AOGM': 7633.5,
+                       'DET': 0.7490266189908621,
+                       'LNK': 0.6449568500539374,
+                       'TRA': 0.7356638271348431,
+                       'fn_edges': 877,
+                       'fn_nodes': 610,
+                       'fp_edges': 1,
+                       'fp_nodes': 217,
+                       'ns_nodes': 0,
+                       'ws_edges': 0},
+        'version': '0.4.3'}]
+    Saving results …
+      Saved /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_btrack/res_track.txt
+      Saved 92 tracked frames to /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_btrack
+    [stack] /Users/tim/Documents/github_repositories/tracking-widgets/ctc_data/Fluo-N2DH-GOWT1/02_RES_btrack/merged_stack.tif: (92, 1024, 1024) uint16 (TYX)
+
+  Results (JSON): /Users/tim/Documents/github_repositories/tracking-widgets/ctc_results/ctc_benchmark_results.json
+  Results (CSV):  /Users/tim/Documents/github_repositories/tracking-widgets/ctc_results/ctc_benchmark_results.csv
+
+================================================================================
+BENCHMARK SUMMARY
+================================================================================
+Dataset                Seq   Method           TRA     DET       AOGM
+--------------------------------------------------------------------------------
+PhC-C2DH-U373          01    easytrack     0.9998  1.0000       1.50
+PhC-C2DH-U373          01    btrack        0.9998  1.0000       1.50
+PhC-C2DH-U373          02    easytrack     0.9830  0.9883     135.50
+PhC-C2DH-U373          02    btrack        0.9806  0.9863     154.00
+DIC-C2DH-HeLa          01    easytrack     0.9457  0.9563     698.00
+DIC-C2DH-HeLa          01    btrack        0.9477  0.9653     672.50
+DIC-C2DH-HeLa          02    easytrack     0.9458  0.9548     640.50
+DIC-C2DH-HeLa          02    btrack        0.9425  0.9538     679.50
+Fluo-N2DH-GOWT1        01    easytrack     0.6891  0.7046    7348.50
+Fluo-N2DH-GOWT1        01    btrack        0.7039  0.7196    6998.50
+Fluo-N2DH-GOWT1        02    easytrack     0.7315  0.7443    7754.00
+Fluo-N2DH-GOWT1        02    btrack        0.7357  0.7490    7633.50
+================================================================================
+
+Metric definitions (Cell Tracking Challenge):
+  TRA  – Tracking accuracy  (higher is better, max 1.0)
+  DET  – Detection accuracy (higher is better, max 1.0)
+  AOGM – Acyclic Oriented Graph Matching error (lower is better)
+
