@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import ftplib
 import json
 import ssl
 import sys
@@ -139,7 +140,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": True,
         "sequences": ["WD1.1_17-03_WT_MP.ome.zarr.zip", "WD1_15-02_WT_confocalonly.ome.zarr.zip",
                       "WD2.1_21-02_WT_confocalonly.ome.zarr.zip", "WD3.2_21-03_WT_MP.ome.zarr.zip"],
-        "downloadable": True,
+        "downloadable": "FTP",
     }
 }
 
@@ -156,6 +157,87 @@ def _progress_hook(count: int, block_size: int, total_size: int) -> None:
         sys.stdout.write(f"\r  [{bar:<50}] {pct:5.1f}%")
         sys.stdout.flush()
 
+
+def download_ftp(target_dir: Path) -> None:
+    """Download specified files from EBI FTP server
+
+
+    """
+
+    # FTP server details
+    HOST = "ftp.ebi.ac.uk"
+    USER = "anonymous"
+
+    # Remote directory path
+    REMOTE_DIR = "biostudies/fire/S-BIAD/843/S-BIAD843/Files"
+
+    # Files to download
+    files_to_download = [
+        "WD1.1_17-03_WT_MP.ome.zarr.zip",
+        "WD3.2_21-03_WT_MP.ome.zarr.zip",
+        "WD1_15-02_WT_confocalonly.ome.zarr.zip",
+        "WD2.1_21-02_WT_confocalonly.ome.zarr.zip",
+        "WD1_15-02_WT_confocalonly_segmented.ome.zarr.zip",
+        "WD1.1_17-03_WT_MP_segmented.ome.zarr.zip",
+        "WD2.1_21-02_WT_confocalonly_segmented.ome.zarr.zip",
+        "WD3.2_21-03_WT_MP_segmented.ome.zarr.zip"
+    ]
+
+    try:
+        # Connect to FTP server
+        print(f"Connecting to {HOST}...")
+        ftp = ftplib.FTP(HOST)
+
+        # Login as anonymous
+        ftp.login(user=USER)
+        print("Login successful")
+
+        # Change to the remote directory
+        print(f"Changing to directory: {REMOTE_DIR}")
+        ftp.cwd(REMOTE_DIR)
+
+        # Set binary mode
+        ftp.voidcmd('TYPE I')
+        print("Binary mode set")
+
+        # Download each file
+        for filename in files_to_download:
+            print(f"\nDownloading: {filename}")
+
+            # Check if file already exists
+            if Path(target_dir / filename).exists():
+                print(f"  File {filename} already exists, skipping...")
+                continue
+
+            try:
+                # Download the file
+                with open(target_dir / filename, 'wb') as local_file:
+                    ftp.retrbinary(f'RETR {filename}', local_file.write)
+                print(f"  Successfully downloaded: {filename}")
+
+            except ftplib.error_perm as e:
+                print(f"  Error downloading {filename}: {e}")
+                continue
+
+            print(f"  Extracting to {target_dir} …")
+            zip_path = target_dir / filename
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(target_dir)
+
+            zip_path.unlink()
+
+        # Disconnect
+        ftp.quit()
+        print("\nAll downloads completed!")
+
+
+
+    except ftplib.all_errors as e:
+        print(f"FTP error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 def download_dataset(name: str, data_dir: Path) -> Path:
     """
@@ -184,35 +266,10 @@ def download_dataset(name: str, data_dir: Path) -> Path:
 
     target_dir.mkdir(parents=True, exist_ok=True)
     if info["downloadable"]:
-        zip_path = data_dir / f"{name}.zip"
-
-        print(f"  Downloading {name} from:\n    {url}")
-        try:
-            ssl_ctx = _make_ssl_context()
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, context=ssl_ctx) as response:
-                total_size = int(response.headers.get("Content-Length", 0))
-                block_size = 8192
-                count = 0
-                with open(zip_path, "wb") as out_f:
-                    while True:
-                        chunk = response.read(block_size)
-                        if not chunk:
-                            break
-                        out_f.write(chunk)
-                        count += 1
-                        _progress_hook(count, block_size, total_size)
-            print()  # newline after progress bar
-        except Exception as exc:
-            print(f"\n  ERROR downloading {name}: {exc}")
-            print("  Please download manually and re-run with --skip-download.")
-            raise
-
-        print(f"  Extracting to {target_dir} …")
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(data_dir)
-
-        zip_path.unlink()
+        if info["downloadable"] == "FTP":
+            download_ftp(target_dir)
+        else:
+            download_ssl(data_dir, name, target_dir, url)
     else:
         # This is a local directory. Copy the URL to the target_dir if it's not already there.
         source_path = Path(url)
@@ -234,6 +291,38 @@ def download_dataset(name: str, data_dir: Path) -> Path:
             raise ValueError(f"URL for {name} is not a directory: {url}")
 
     return target_dir
+
+
+def download_ssl(data_dir: Path, name: str, target_dir: Path, url):
+    zip_path = data_dir / f"{name}.zip"
+
+    print(f"  Downloading {name} from:\n    {url}")
+    try:
+        ssl_ctx = _make_ssl_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, context=ssl_ctx) as response:
+            total_size = int(response.headers.get("Content-Length", 0))
+            block_size = 8192
+            count = 0
+            with open(zip_path, "wb") as out_f:
+                while True:
+                    chunk = response.read(block_size)
+                    if not chunk:
+                        break
+                    out_f.write(chunk)
+                    count += 1
+                    _progress_hook(count, block_size, total_size)
+        print()  # newline after progress bar
+    except Exception as exc:
+        print(f"\n  ERROR downloading {name}: {exc}")
+        print("  Please download manually and re-run with --skip-download.")
+        raise
+
+    print(f"  Extracting to {target_dir} …")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(data_dir)
+
+    zip_path.unlink()
 
 
 # ---------------------------------------------------------------------------
