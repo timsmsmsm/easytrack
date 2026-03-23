@@ -141,6 +141,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "DIC-C2DH-HeLa": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/DIC-C2DH-HeLa.zip",
@@ -148,6 +149,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "Fluo-N2DH-GOWT1": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-N2DH-GOWT1.zip",
@@ -155,6 +157,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "Fluo-C2DL-Huh7": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C2DL-Huh7.zip",
