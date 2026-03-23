@@ -117,13 +117,30 @@ DATASETS: Dict[str, Dict] = {
         "description": "2D+time: hepatocellular carcinoma cells (Huh7)",
         "is_3d": False,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "Fluo-C3DL-MDA231": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C3DL-MDA231.zip",
         "description": "3D+time: breast carcinoma cells (MDA231) in collagen",
         "is_3d": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
+    "2d_wing_disc_wound_healing": {
+        "url": "../example_data/2d_time",
+        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
+        "is_3d": False,
+        "sequences": [],
+        "downloadable": False,
+    },
+    "3d_wing_disc": {
+        "url": "https://ftp.ebi.ac.uk/biostudies/fire/S-BIAD/843/S-BIAD843/Files/",
+        "description": "3D: Individual 3D cell shapes of Drosophila Wing Disc",
+        "is_3d": True,
+        "sequences": ["WD1.1_17-03_WT_MP.ome.zarr.zip", "WD1_15-02_WT_confocalonly.ome.zarr.zip",
+                      "WD2.1_21-02_WT_confocalonly.ome.zarr.zip", "WD3.2_21-03_WT_MP.ome.zarr.zip"],
+        "downloadable": True,
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -166,35 +183,56 @@ def download_dataset(name: str, data_dir: Path) -> Path:
         return target_dir
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = data_dir / f"{name}.zip"
+    if info["downloadable"]:
+        zip_path = data_dir / f"{name}.zip"
 
-    print(f"  Downloading {name} from:\n    {url}")
-    try:
-        ssl_ctx = _make_ssl_context()
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, context=ssl_ctx) as response:
-            total_size = int(response.headers.get("Content-Length", 0))
-            block_size = 8192
-            count = 0
-            with open(zip_path, "wb") as out_f:
-                while True:
-                    chunk = response.read(block_size)
-                    if not chunk:
-                        break
-                    out_f.write(chunk)
-                    count += 1
-                    _progress_hook(count, block_size, total_size)
-        print()  # newline after progress bar
-    except Exception as exc:
-        print(f"\n  ERROR downloading {name}: {exc}")
-        print("  Please download manually and re-run with --skip-download.")
-        raise
+        print(f"  Downloading {name} from:\n    {url}")
+        try:
+            ssl_ctx = _make_ssl_context()
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, context=ssl_ctx) as response:
+                total_size = int(response.headers.get("Content-Length", 0))
+                block_size = 8192
+                count = 0
+                with open(zip_path, "wb") as out_f:
+                    while True:
+                        chunk = response.read(block_size)
+                        if not chunk:
+                            break
+                        out_f.write(chunk)
+                        count += 1
+                        _progress_hook(count, block_size, total_size)
+            print()  # newline after progress bar
+        except Exception as exc:
+            print(f"\n  ERROR downloading {name}: {exc}")
+            print("  Please download manually and re-run with --skip-download.")
+            raise
 
-    print(f"  Extracting to {target_dir} …")
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(data_dir)
+        print(f"  Extracting to {target_dir} …")
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(data_dir)
 
-    zip_path.unlink()
+        zip_path.unlink()
+    else:
+        # This is a local directory. Copy the URL to the target_dir if it's not already there.
+        source_path = Path(url)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source path for {name} not found: {source_path}")
+        if source_path.is_dir():
+            if not any(target_dir.iterdir()):
+                print(f"  Copying {name} from {source_path} to {target_dir} …")
+                for item in source_path.iterdir():
+                    dest = target_dir / item.name
+                    import shutil
+                    if item.is_dir():
+                        shutil.copytree(item, dest)
+                    else:
+                        shutil.copy2(item, dest)
+            else:
+                print(f"  [skip] Target directory {target_dir} already has content.")
+        else:
+            raise ValueError(f"URL for {name} is not a directory: {url}")
+
     return target_dir
 
 
