@@ -70,13 +70,15 @@ import traceback
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import numpy as np
 import pprint
 import tifffile
+from numpy import dtype, ndarray
 from skimage import io
 from traccuracy import run_metrics, TrackingGraph
+from traccuracy.loaders import load_tiffs
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics
 
@@ -179,7 +181,7 @@ DATASETS: Dict[str, Dict] = {
         "url": "../example_data/2d_time",
         "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
         "is_3d": False,
-        "sequences": [],
+        "sequences": ["01"],
         "downloadable": False,
     },
     "3d_wing_disc": {
@@ -193,7 +195,7 @@ DATASETS: Dict[str, Dict] = {
 }
 
 # Default datasets to benchmark (those with silver truth for full coverage)
-DEFAULT_DATASETS = ["PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
+DEFAULT_DATASETS = ["2d_wing_disc_wound_healing"]#, "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1", "Fluo-C3DL-MDA231"]
 
 
 # ---------------------------------------------------------------------------
@@ -510,6 +512,9 @@ def merge_gt_st_segmentation(
     tra_dir    = str(dataset_dir / f"{sequence}_GT" / "TRA")
     out_dir    = str(dataset_dir / f"{sequence}_MERGED_SEG")
 
+    if os.path.exists(out_dir):
+        return Path(out_dir)
+
     os.makedirs(out_dir, exist_ok=True)
 
     gt_seg_files = _discover_seg_files(gt_seg_dir) if os.path.isdir(gt_seg_dir) else {}
@@ -615,7 +620,7 @@ def load_ctc_segmentation(seg_dir: Path) -> np.ndarray:
     return segmentation
 
 
-def load_gt_tracking_graph(tra_dir: Path):
+def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
     """
     Load CTC ground-truth as a traccuracy TrackingGraph.
 
@@ -630,6 +635,13 @@ def load_gt_tracking_graph(tra_dir: Path):
     """
     from traccuracy.loaders import load_ctc_data
 
+    track_paths = list(glob.glob(str(tra_dir / "man_track.txt")))
+    if not track_paths:
+        masks = load_tiffs(str(tra_dir))
+        lbep = _extract_lineage_from_tracked_seg(masks)
+        res_track_path = tra_dir / "man_track.txt"
+        write_lbep_to_csv(lbep, res_track_path)
+
     gt_graph = load_ctc_data(
         str(tra_dir),
         str(tra_dir / "man_track.txt"),
@@ -637,6 +649,18 @@ def load_gt_tracking_graph(tra_dir: Path):
     )
     print(f"    GT nodes: {len(gt_graph.nodes())}, GT edges: {len(gt_graph.edges())}")
     return gt_graph
+
+
+def write_lbep_to_csv(lbep: ndarray[tuple[Any, ...], dtype[Any]], res_track_path: Path):
+    with open(res_track_path, "w") as f:
+        for idx in range(lbep.shape[0]):
+            cell_id = int(lbep[idx, 0])
+            start_frame = int(lbep[idx, 1])
+            end_frame = int(lbep[idx, 2])
+            parent_id = int(lbep[idx, 3])
+            if parent_id == cell_id:
+                parent_id = 0
+            f.write(f"{cell_id}\t{start_frame}\t{end_frame}\t{parent_id}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -680,6 +704,46 @@ def _build_pred_graph(tracked_seg: np.ndarray, lbep: np.ndarray) -> TrackingGrap
     return TrackingGraph(G, tracked_seg)
 
 
+def _extract_lineage_from_tracked_seg(tracked_seg: np.ndarray) -> np.ndarray:
+    """
+    Extract lineage (LBEP) from tracked segmentation by analyzing
+    cell appearance and overlaps across frames.
+    """
+    lbep_rows = []
+    cell_ids = np.unique(tracked_seg)
+    cell_ids = cell_ids[cell_ids != 0]  # exclude background
+
+    for cell_id in cell_ids:
+        # Find frames where this cell exists
+        frames = np.where(np.any(tracked_seg == cell_id, axis=(1, 2) if tracked_seg.ndim == 3 else (1, 2, 3)))[0]
+
+        if len(frames) == 0:
+            continue
+
+        start_frame = int(frames[0])
+        end_frame = int(frames[-1])
+
+        # Find parent by checking which cell has maximum overlap in previous frame
+        parent_id = 0  # default: no parent
+        if start_frame > 0:
+            prev_frame_seg = tracked_seg[start_frame - 1]
+            current_frame_seg = tracked_seg[start_frame]
+            current_mask = current_frame_seg == cell_id
+
+            overlapping_ids = prev_frame_seg[current_mask]
+            overlapping_ids = overlapping_ids[overlapping_ids != 0]
+
+            if len(overlapping_ids) > 0:
+                labels, counts = np.unique(overlapping_ids, return_counts=True)
+                parent_id = int(labels[np.argmax(counts)])
+
+        lbep_rows.append([cell_id, start_frame, end_frame, parent_id])
+
+
+
+    return np.array(lbep_rows, dtype=np.int64)
+
+
 def _save_ctc_results(
     tracked_seg: np.ndarray,
     lbep: np.ndarray,
@@ -689,15 +753,7 @@ def _save_ctc_results(
     res_dir.mkdir(exist_ok=True)
 
     res_track_path = res_dir / "res_track.txt"
-    with open(res_track_path, "w") as f:
-        for idx in range(lbep.shape[0]):
-            cell_id = int(lbep[idx, 0])
-            start_frame = int(lbep[idx, 1])
-            end_frame = int(lbep[idx, 2])
-            parent_id = int(lbep[idx, 3])
-            if parent_id == cell_id:
-                parent_id = 0
-            f.write(f"{cell_id}\t{start_frame}\t{end_frame}\t{parent_id}\n")
+    write_lbep_to_csv(lbep, res_track_path)
     print(f"      Saved {res_track_path}")
 
     for t in range(tracked_seg.shape[0]):
@@ -898,8 +954,6 @@ def benchmark_sequence(
     man_track = tra_dir / "man_track.txt"
     if not man_track.exists():
         print(f"  [skip] man_track.txt not found in {tra_dir}")
-        return [{"dataset": dataset_name, "sequence": sequence,
-                 "error": "man_track.txt missing"}]
 
     print(f"\n  ── Sequence {sequence} ──")
     print(f"    GT dir: {tra_dir}")
@@ -941,7 +995,6 @@ def benchmark_sequence(
         # ── easytrack ──────────────────────────────────────────────────
         print(f"\n    ▸ easytrack (preset: {preset_name!r})")
         try:
-            gt_data = load_gt_tracking_graph(tra_dir)
             tracked_seg_et, lbep_et = run_easytrack(segmentation, preset_name)
 
             print("    Building prediction graph …")
