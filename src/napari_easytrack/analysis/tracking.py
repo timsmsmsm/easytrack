@@ -363,7 +363,7 @@ def run_tracking_process(
         progress_queue.put(f"Extracting objects from {segmentation.shape[0]} frames...")
         
         # Run tracking
-        tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph = \
+        tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph = \
             run_tracking_core(segmentation, params, base_config_path)
         
         progress_queue.put("Saving results...")
