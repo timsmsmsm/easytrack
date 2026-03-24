@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import ftplib
 import glob
 import json
 import os
@@ -69,16 +70,19 @@ import traceback
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import numpy as np
 import pprint
 import tifffile
+from numpy import dtype, ndarray
 from skimage import io
 from traccuracy import run_metrics, TrackingGraph
+from traccuracy.loaders import load_tiffs
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics
 
+from napari_easytrack.analysis.optim_backend import _fill_gaps_in_segmentation
 from napari_easytrack.analysis.tracking import run_tracking_with_params
 from napari_easytrack.presets import load_preset_if_exists, get_presets
 
@@ -140,6 +144,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "DIC-C2DH-HeLa": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/DIC-C2DH-HeLa.zip",
@@ -147,6 +152,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "Fluo-N2DH-GOWT1": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-N2DH-GOWT1.zip",
@@ -154,6 +160,7 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
     "Fluo-C2DL-Huh7": {
         "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C2DL-Huh7.zip",
@@ -161,18 +168,33 @@ DATASETS: Dict[str, Dict] = {
         "is_3d": False,
         "has_st": False,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
-    "Fluo-C3DL-MDA231": {
-        "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C3DL-MDA231.zip",
-        "description": "3D+time: breast carcinoma cells (MDA231) in collagen",
+    "Fluo-C3DH-A549-SIM": {
+        "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C3DH-A549-SIM.zip",
+        "description": "3D+time: Simulated GFP-actin-stained A549 Lung Cancer cells embedded in a Matrigel matrix",
         "is_3d": True,
-        "has_st": True,
         "sequences": ["01", "02"],
+        "downloadable": True,
     },
+    "2d_wing_disc_wound_healing": {
+        "url": "../example_data/2d_time",
+        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
+        "is_3d": False,
+        "sequences": ["01"],
+        "downloadable": False,
+    },
+    "3d_wing_disc": {
+        "url": "../example_data/3d_wing_disc",
+        "description": "3D: Individual 3D cell shapes of Drosophila Wing Disc",
+        "is_3d": True,
+        "sequences": ["01"],
+        "downloadable": False,
+    }
 }
 
 # Default datasets to benchmark (those with silver truth for full coverage)
-DEFAULT_DATASETS = ["PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
+DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +210,87 @@ def _progress_hook(count: int, block_size: int, total_size: int) -> None:
         sys.stdout.write(f"\r  [{bar:<50}] {pct:5.1f}%")
         sys.stdout.flush()
 
+
+def download_ftp(target_dir: Path) -> None:
+    """Download specified files from EBI FTP server
+
+
+    """
+
+    # FTP server details
+    HOST = "ftp.ebi.ac.uk"
+    USER = "anonymous"
+
+    # Remote directory path
+    REMOTE_DIR = "biostudies/fire/S-BIAD/843/S-BIAD843/Files"
+
+    # Files to download
+    files_to_download = [
+        "WD1.1_17-03_WT_MP.ome.zarr.zip",
+        "WD3.2_21-03_WT_MP.ome.zarr.zip",
+        "WD1_15-02_WT_confocalonly.ome.zarr.zip",
+        "WD2.1_21-02_WT_confocalonly.ome.zarr.zip",
+        "WD1_15-02_WT_confocalonly_segmented.ome.zarr.zip",
+        "WD1.1_17-03_WT_MP_segmented.ome.zarr.zip",
+        "WD2.1_21-02_WT_confocalonly_segmented.ome.zarr.zip",
+        "WD3.2_21-03_WT_MP_segmented.ome.zarr.zip"
+    ]
+
+    try:
+        # Connect to FTP server
+        print(f"Connecting to {HOST}...")
+        ftp = ftplib.FTP(HOST)
+
+        # Login as anonymous
+        ftp.login(user=USER)
+        print("Login successful")
+
+        # Change to the remote directory
+        print(f"Changing to directory: {REMOTE_DIR}")
+        ftp.cwd(REMOTE_DIR)
+
+        # Set binary mode
+        ftp.voidcmd('TYPE I')
+        print("Binary mode set")
+
+        # Download each file
+        for filename in files_to_download:
+            print(f"\nDownloading: {filename}")
+
+            # Check if file already exists
+            if Path(target_dir / filename).exists():
+                print(f"  File {filename} already exists, skipping...")
+                continue
+
+            try:
+                # Download the file
+                with open(target_dir / filename, 'wb') as local_file:
+                    ftp.retrbinary(f'RETR {filename}', local_file.write)
+                print(f"  Successfully downloaded: {filename}")
+
+            except ftplib.error_perm as e:
+                print(f"  Error downloading {filename}: {e}")
+                continue
+
+            print(f"  Extracting to {target_dir} …")
+            zip_path = target_dir / filename
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(target_dir)
+
+            zip_path.unlink()
+
+        # Disconnect
+        ftp.quit()
+        print("\nAll downloads completed!")
+
+
+
+    except ftplib.all_errors as e:
+        print(f"FTP error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 def download_dataset(name: str, data_dir: Path) -> Path:
     """
@@ -215,6 +318,35 @@ def download_dataset(name: str, data_dir: Path) -> Path:
         return target_dir
 
     target_dir.mkdir(parents=True, exist_ok=True)
+    if info["downloadable"]:
+        if info["downloadable"] == "FTP":
+            download_ftp(target_dir)
+        else:
+            download_ssl(data_dir, name, target_dir, url)
+    else:
+        # This is a local directory. Copy the URL to the target_dir if it's not already there.
+        source_path = Path(url)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source path for {name} not found: {source_path}")
+        if source_path.is_dir():
+            if not any(target_dir.iterdir()):
+                print(f"  Copying {name} from {source_path} to {target_dir} …")
+                for item in source_path.iterdir():
+                    dest = target_dir / item.name
+                    import shutil
+                    if item.is_dir():
+                        shutil.copytree(item, dest)
+                    else:
+                        shutil.copy2(item, dest)
+            else:
+                print(f"  [skip] Target directory {target_dir} already has content.")
+        else:
+            raise ValueError(f"URL for {name} is not a directory: {url}")
+
+    return target_dir
+
+
+def download_ssl(data_dir: Path, name: str, target_dir: Path, url):
     zip_path = data_dir / f"{name}.zip"
 
     print(f"  Downloading {name} from:\n    {url}")
@@ -244,7 +376,6 @@ def download_dataset(name: str, data_dir: Path) -> Path:
         zf.extractall(data_dir)
 
     zip_path.unlink()
-    return target_dir
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +511,9 @@ def merge_gt_st_segmentation(
     tra_dir    = str(dataset_dir / f"{sequence}_GT" / "TRA")
     out_dir    = str(dataset_dir / f"{sequence}_MERGED_SEG")
 
+    if os.path.exists(out_dir):
+        return Path(out_dir)
+
     os.makedirs(out_dir, exist_ok=True)
 
     gt_seg_files = _discover_seg_files(gt_seg_dir) if os.path.isdir(gt_seg_dir) else {}
@@ -485,7 +619,7 @@ def load_ctc_segmentation(seg_dir: Path) -> np.ndarray:
     return segmentation
 
 
-def load_gt_tracking_graph(tra_dir: Path):
+def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
     """
     Load CTC ground-truth as a traccuracy TrackingGraph.
 
@@ -500,6 +634,17 @@ def load_gt_tracking_graph(tra_dir: Path):
     """
     from traccuracy.loaders import load_ctc_data
 
+    track_paths = list(glob.glob(str(tra_dir / "man_track.txt")))
+    if not track_paths:
+        masks = load_tiffs(str(tra_dir))
+        filled_segmentation = _fill_gaps_in_segmentation(masks)
+        for t in range(filled_segmentation.shape[0]):
+            frame_path = tra_dir / f"mask{t:03d}.tif"
+            io.imsave(str(frame_path), filled_segmentation[t], check_contrast=False)
+        lbep = _extract_lineage_from_tracked_seg(filled_segmentation)
+        res_track_path = tra_dir / "man_track.txt"
+        write_lbep_to_csv(lbep, res_track_path)
+
     gt_graph = load_ctc_data(
         str(tra_dir),
         str(tra_dir / "man_track.txt"),
@@ -507,6 +652,18 @@ def load_gt_tracking_graph(tra_dir: Path):
     )
     print(f"    GT nodes: {len(gt_graph.nodes())}, GT edges: {len(gt_graph.edges())}")
     return gt_graph
+
+
+def write_lbep_to_csv(lbep: ndarray[tuple[Any, ...], dtype[Any]], res_track_path: Path):
+    with open(res_track_path, "w") as f:
+        for idx in range(lbep.shape[0]):
+            cell_id = int(lbep[idx, 0])
+            start_frame = int(lbep[idx, 1])
+            end_frame = int(lbep[idx, 2])
+            parent_id = int(lbep[idx, 3])
+            if parent_id == cell_id:
+                parent_id = 0
+            f.write(f"{cell_id} {start_frame} {end_frame} {parent_id}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +707,44 @@ def _build_pred_graph(tracked_seg: np.ndarray, lbep: np.ndarray) -> TrackingGrap
     return TrackingGraph(G, tracked_seg)
 
 
+def _extract_lineage_from_tracked_seg(tracked_seg: np.ndarray) -> np.ndarray:
+    """
+    Extract lineage (LBEP) from tracked segmentation by analyzing
+    cell appearance and overlaps across frames.
+    """
+    lbep_rows = []
+    cell_ids = np.unique(tracked_seg)
+    cell_ids = cell_ids[cell_ids != 0]  # exclude background
+
+    for cell_id in cell_ids:
+        # Find frames where this cell exists
+        frames = np.where(np.any(tracked_seg == cell_id, axis=(1, 2) if tracked_seg.ndim == 3 else (1, 2, 3)))[0]
+
+        if len(frames) == 0:
+            continue
+
+        start_frame = int(frames[0])
+        end_frame = int(frames[-1])
+
+        # Find parent by checking which cell has maximum overlap in previous frame
+        parent_id = 0  # default: no parent
+        if start_frame > 0:
+            prev_frame_seg = tracked_seg[start_frame - 1]
+            current_frame_seg = tracked_seg[start_frame]
+            current_mask = current_frame_seg == cell_id
+
+            overlapping_ids = prev_frame_seg[current_mask]
+            overlapping_ids = overlapping_ids[overlapping_ids != 0]
+
+            if len(overlapping_ids) > 0:
+                labels, counts = np.unique(overlapping_ids, return_counts=True)
+                parent_id = int(labels[np.argmax(counts)])
+
+        lbep_rows.append([cell_id, start_frame, end_frame, parent_id])
+
+    return np.array(lbep_rows, dtype=np.int64)
+
+
 def _save_ctc_results(
     tracked_seg: np.ndarray,
     lbep: np.ndarray,
@@ -559,15 +754,7 @@ def _save_ctc_results(
     res_dir.mkdir(exist_ok=True)
 
     res_track_path = res_dir / "res_track.txt"
-    with open(res_track_path, "w") as f:
-        for idx in range(lbep.shape[0]):
-            cell_id = int(lbep[idx, 0])
-            start_frame = int(lbep[idx, 1])
-            end_frame = int(lbep[idx, 2])
-            parent_id = int(lbep[idx, 3])
-            if parent_id == cell_id:
-                parent_id = 0
-            f.write(f"{cell_id}\t{start_frame}\t{end_frame}\t{parent_id}\n")
+    write_lbep_to_csv(lbep, res_track_path)
     print(f"      Saved {res_track_path}")
 
     for t in range(tracked_seg.shape[0]):
@@ -768,13 +955,14 @@ def benchmark_sequence(
     man_track = tra_dir / "man_track.txt"
     if not man_track.exists():
         print(f"  [skip] man_track.txt not found in {tra_dir}")
-        return [{"dataset": dataset_name, "sequence": sequence,
-                 "error": "man_track.txt missing"}]
 
     print(f"\n  ── Sequence {sequence} ──")
     print(f"    GT dir: {tra_dir}")
 
     results = []
+
+    res_dir_et = dataset_dir / f"{sequence}_RES_easytrack"
+    res_dir_bt = dataset_dir / f"{sequence}_RES_btrack"
 
     try:
         # 0. Determine segmentation source
@@ -811,14 +999,12 @@ def benchmark_sequence(
         # ── easytrack ──────────────────────────────────────────────────
         print(f"\n    ▸ easytrack (preset: {preset_name!r})")
         try:
-            gt_data = load_gt_tracking_graph(tra_dir)
             tracked_seg_et, lbep_et = run_easytrack(segmentation, preset_name)
 
             print("    Building prediction graph …")
             et_metrics = _evaluate_tracking(gt_data, tracked_seg_et, lbep_et)
 
             print("    Saving results …")
-            res_dir_et = dataset_dir / f"{sequence}_RES_easytrack"
             _save_ctc_results(tracked_seg_et, lbep_et, res_dir_et)
 
             results.append({
@@ -853,7 +1039,6 @@ def benchmark_sequence(
                 bt_metrics = _evaluate_tracking(gt_data, tracked_seg_bt, lbep_bt)
 
                 print("    Saving results …")
-                res_dir_bt = dataset_dir / f"{sequence}_RES_btrack"
                 _save_ctc_results(tracked_seg_bt, lbep_bt, res_dir_bt)
 
                 results.append({
