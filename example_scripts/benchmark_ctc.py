@@ -170,11 +170,10 @@ DATASETS: Dict[str, Dict] = {
         "sequences": ["01", "02"],
         "downloadable": True,
     },
-    "Fluo-C3DL-MDA231": {
-        "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C3DL-MDA231.zip",
-        "description": "3D+time: breast carcinoma cells (MDA231) in collagen",
+    "Fluo-C3DH-A549-SIM": {
+        "url": "https://data.celltrackingchallenge.net/training-datasets/Fluo-C3DH-A549-SIM.zip",
+        "description": "3D+time: Simulated GFP-actin-stained A549 Lung Cancer cells embedded in a Matrigel matrix",
         "is_3d": True,
-        "has_st": True,
         "sequences": ["01", "02"],
         "downloadable": True,
     },
@@ -195,7 +194,7 @@ DATASETS: Dict[str, Dict] = {
 }
 
 # Default datasets to benchmark (those with silver truth for full coverage)
-DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1", "Fluo-C3DL-MDA231"]
+DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
 
 
 # ---------------------------------------------------------------------------
@@ -962,6 +961,9 @@ def benchmark_sequence(
 
     results = []
 
+    res_dir_et = dataset_dir / f"{sequence}_RES_easytrack"
+    res_dir_bt = dataset_dir / f"{sequence}_RES_btrack"
+
     try:
         # 0. Determine segmentation source
         if gt_only:
@@ -1003,7 +1005,6 @@ def benchmark_sequence(
             et_metrics = _evaluate_tracking(gt_data, tracked_seg_et, lbep_et)
 
             print("    Saving results …")
-            res_dir_et = dataset_dir / f"{sequence}_RES_easytrack"
             _save_ctc_results(tracked_seg_et, lbep_et, res_dir_et)
 
             results.append({
@@ -1038,7 +1039,6 @@ def benchmark_sequence(
                 bt_metrics = _evaluate_tracking(gt_data, tracked_seg_bt, lbep_bt)
 
                 print("    Saving results …")
-                res_dir_bt = dataset_dir / f"{sequence}_RES_btrack"
                 _save_ctc_results(tracked_seg_bt, lbep_bt, res_dir_bt)
 
                 results.append({
