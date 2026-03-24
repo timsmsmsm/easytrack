@@ -65,7 +65,7 @@ def plot_overall_comparison(ax, df: pd.DataFrame, metrics: List[str], methods: L
     for i, method in enumerate(methods):
         method_df = df[df['method'] == method]
         means = [method_df[m].mean() for m in metrics]
-        ax.bar(x + i * width, means, width, label=method, alpha=0.8)
+        ax.bar(x + i * width, means, width, label=method, alpha=0.8, edgecolor='black')
     
     ax.set_xlabel('Metric', fontsize=20, fontweight='bold')
     ax.set_ylabel('Mean Score', fontsize=20, fontweight='bold')
@@ -86,7 +86,7 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
     
     for i, method in enumerate(methods):
         offset = (i - len(methods) / 2 + 0.5) * width
-        ax.bar(x + offset, data[method], width, label=method, alpha=0.8)
+        ax.bar(x + offset, data[method], width, label=method, alpha=0.8, edgecolor='black')
     
     ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
     ax.set_ylabel(f'{metric} Score', fontsize=20, fontweight='bold')
@@ -117,7 +117,7 @@ def plot_scatter_metrics(ax, df: pd.DataFrame, metric1: str = 'DET', metric2: st
 
 def plot_performance_difference(ax, metric_data_list: Dict) -> None:
     """Plot performance difference between first two methods."""
-    METRIC_COLORS = {'TRA': '#2ecc71', 'DET': '#e74c3c'}
+    METRIC_COLORS = {'TRA': 'Green', 'DET': 'Orange'}
     # Get first two methods (assuming we're comparing two)
     methods = metric_data_list[list(metric_data_list.keys())[0]]['methods']
     if len(methods) != 2:
@@ -133,12 +133,12 @@ def plot_performance_difference(ax, metric_data_list: Dict) -> None:
     width = 0.35
     
     # Plot bars with distinct colors for TRA and DET
-    for i, metric in enumerate(metrics):
+    for i, metric in enumerate(metrics[:2]):
         data = metric_data_list[metric]['data']
         diff = np.array(data[method1]) - np.array(data[method2])
         offset = (i - len(metrics) / 2 + 0.5) * width
-        color = METRIC_COLORS.get(metric, 'gray')
-        ax.bar(x + offset, diff, width, label=f'{metric}', alpha=0.85, color=color)
+        color = METRIC_COLORS[metric]
+        ax.bar(x + offset, diff, width, label=f'{metric}', alpha=0.85, color=color, edgecolor='black')
     
     ax.axhline(y=0, color='black', linestyle='-', linewidth=0.8)
     ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
@@ -200,7 +200,7 @@ def save_plot(filename: str, output_dir: Path = None) -> Path:
 
 def main():
     """Main execution function."""
-    csv_path = Path(__file__).parent / "ctc_benchmark_results.csv"
+    csv_path = Path(__file__).parent / "ctc_results" / "ctc_benchmark_results.csv"
     output_dir = csv_path.parent
     
     # Load and validate data
@@ -218,7 +218,7 @@ def main():
     # 1. Overall comparison
     plt.figure(figsize=(10, 6))
     plot_overall_comparison(plt.gca(), df, metrics, methods)
-    save_plot("ctc_results/01_overall_comparison.png", output_dir)
+    save_plot("01_overall_comparison.png", output_dir)
     
     # 2-4. Per-dataset comparisons for each metric
     for metric in metrics:
@@ -230,12 +230,12 @@ def main():
     # 5. Scatter plot
     plt.figure(figsize=(10, 8))
     plot_scatter_metrics(plt.gca(), df)
-    save_plot("ctc_results/03_scatter_tra_vs_det.png", output_dir)
+    save_plot("03_scatter_tra_vs_det.png", output_dir)
     
     # 6. Performance difference
     plt.figure(figsize=(14, 6))
     plot_performance_difference(plt.gca(), metric_data_list)
-    save_plot("ctc_results/04_performance_difference.png", output_dir)
+    save_plot("04_performance_difference.png", output_dir)
     
     # Print statistics
     print_summary_statistics(df, metrics)
