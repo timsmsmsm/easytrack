@@ -82,6 +82,7 @@ from traccuracy.loaders import load_tiffs
 from traccuracy.matchers import CTCMatcher
 from traccuracy.metrics import CTCMetrics
 
+from napari_easytrack.analysis.optim_backend import _fill_gaps_in_segmentation
 from napari_easytrack.analysis.tracking import run_tracking_with_params
 from napari_easytrack.presets import load_preset_if_exists, get_presets
 
@@ -185,17 +186,16 @@ DATASETS: Dict[str, Dict] = {
         "downloadable": False,
     },
     "3d_wing_disc": {
-        "url": "https://ftp.ebi.ac.uk/biostudies/fire/S-BIAD/843/S-BIAD843/Files/",
+        "url": "../example_data/3d_wing_disc",
         "description": "3D: Individual 3D cell shapes of Drosophila Wing Disc",
         "is_3d": True,
-        "sequences": ["WD1.1_17-03_WT_MP.ome.zarr.zip", "WD1_15-02_WT_confocalonly.ome.zarr.zip",
-                      "WD2.1_21-02_WT_confocalonly.ome.zarr.zip", "WD3.2_21-03_WT_MP.ome.zarr.zip"],
-        "downloadable": "FTP",
+        "sequences": ["01"],
+        "downloadable": False,
     }
 }
 
 # Default datasets to benchmark (those with silver truth for full coverage)
-DEFAULT_DATASETS = ["2d_wing_disc_wound_healing"]#, "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1", "Fluo-C3DL-MDA231"]
+DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1", "Fluo-C3DL-MDA231"]
 
 
 # ---------------------------------------------------------------------------
@@ -638,7 +638,11 @@ def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
     track_paths = list(glob.glob(str(tra_dir / "man_track.txt")))
     if not track_paths:
         masks = load_tiffs(str(tra_dir))
-        lbep = _extract_lineage_from_tracked_seg(masks)
+        filled_segmentation = _fill_gaps_in_segmentation(masks)
+        for t in range(filled_segmentation.shape[0]):
+            frame_path = tra_dir / f"mask{t:03d}.tif"
+            io.imsave(str(frame_path), filled_segmentation[t], check_contrast=False)
+        lbep = _extract_lineage_from_tracked_seg(filled_segmentation)
         res_track_path = tra_dir / "man_track.txt"
         write_lbep_to_csv(lbep, res_track_path)
 
@@ -660,7 +664,7 @@ def write_lbep_to_csv(lbep: ndarray[tuple[Any, ...], dtype[Any]], res_track_path
             parent_id = int(lbep[idx, 3])
             if parent_id == cell_id:
                 parent_id = 0
-            f.write(f"{cell_id}\t{start_frame}\t{end_frame}\t{parent_id}\n")
+            f.write(f"{cell_id} {start_frame} {end_frame} {parent_id}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -738,8 +742,6 @@ def _extract_lineage_from_tracked_seg(tracked_seg: np.ndarray) -> np.ndarray:
                 parent_id = int(labels[np.argmax(counts)])
 
         lbep_rows.append([cell_id, start_frame, end_frame, parent_id])
-
-
 
     return np.array(lbep_rows, dtype=np.int64)
 

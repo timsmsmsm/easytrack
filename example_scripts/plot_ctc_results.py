@@ -1,0 +1,247 @@
+"""
+Compare tracking results from benchmark_results.csv with comparison plots.
+
+This script generates multiple plots showing:
+1. Overall metric comparison (bar plots with error bars)
+2. Per-dataset comparison for each metric
+3. Metric distributions (scatter plots)
+4. Performance differences between methods
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+# Configure plotting
+plt.style.use('seaborn-v0_8-whitegrid')
+plt.rcParams['figure.figsize'] = (16, 12)
+plt.rcParams['font.size'] = 10
+
+# Configuration
+COLORS = {'easytrack': '#1f77b4', 'btrack': '#ff7f0e'}
+METRIC_CONFIGS = {
+    'TRA': {'label': 'TRA (Tracking)', 'is_higher_better': True},
+    'DET': {'label': 'DET (Detection)', 'is_higher_better': True},
+    'AOGM': {'label': 'AOGM (Overlap)', 'is_higher_better': False},
+}
+
+
+def load_data(csv_path: Path) -> pd.DataFrame:
+    """Load and validate benchmark data."""
+    df = pd.read_csv(csv_path)
+    print(f"✓ Loaded {len(df)} rows from {csv_path}")
+    print(f"  Datasets: {len(df['dataset'].unique())} unique")
+    print(f"  Methods: {list(df['method'].unique())}")
+    print(f"  Metrics: {', '.join(METRIC_CONFIGS.keys())}")
+    return df
+
+
+def compute_metric_by_dataset(df: pd.DataFrame, metric: str) -> Dict[str, Dict]:
+    """Compute metric values for each dataset and method."""
+    datasets = sorted(df['dataset'].unique())
+    methods = sorted(df['method'].unique())
+    
+    results = {method: [] for method in methods}
+    for dataset in datasets:
+        dataset_df = df[df['dataset'] == dataset]
+        for method in methods:
+            value = dataset_df[dataset_df['method'] == method][metric].mean()
+            results[method].append(value)
+    
+    return {
+        'datasets': datasets,
+        'methods': methods,
+        'data': results
+    }
+
+
+def plot_overall_comparison(ax, df: pd.DataFrame, metrics: List[str], methods: List[str]) -> None:
+    """Plot overall metric comparison across all datasets."""
+    x = np.arange(len(metrics))
+    width = 0.35
+    
+    for i, method in enumerate(methods):
+        method_df = df[df['method'] == method]
+        means = [method_df[m].mean() for m in metrics]
+        ax.bar(x + i * width, means, width, label=method, alpha=0.8)
+    
+    ax.set_xlabel('Metric', fontsize=20, fontweight='bold')
+    ax.set_ylabel('Mean Score', fontsize=20, fontweight='bold')
+    ax.set_xticks(x + width / 2)
+    ax.set_xticklabels(metrics)
+    ax.legend()
+    ax.grid(axis='y', alpha=0.3)
+
+
+def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Dict) -> None:
+    """Plot per-dataset comparison for a specific metric."""
+    datasets = metric_data['datasets']
+    methods = metric_data['methods']
+    data = metric_data['data']
+    
+    x = np.arange(len(datasets))
+    width = 0.35 if len(methods) == 2 else 0.25
+    
+    for i, method in enumerate(methods):
+        offset = (i - len(methods) / 2 + 0.5) * width
+        ax.bar(x + offset, data[method], width, label=method, alpha=0.8)
+    
+    ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
+    ax.set_ylabel(f'{metric} Score', fontsize=20, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(datasets, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(axis='y', alpha=0.3)
+    
+    # Set y-axis limits based on metric type
+    if metric_config['is_higher_better']:
+        ax.set_ylim([0.6, 1.05])
+
+
+def plot_scatter_metrics(ax, df: pd.DataFrame, metric1: str = 'DET', metric2: str = 'TRA') -> None:
+    """Plot scatter plot comparing two metrics, colored by method."""
+    for method in df['method'].unique():
+        method_df = df[df['method'] == method]
+        ax.scatter(method_df[metric1], method_df[metric2],
+                  label=method, alpha=0.6, s=100, color=COLORS.get(method, 'gray'))
+    
+    ax.set_xlabel(f'{metric1} Score', fontsize=20, fontweight='bold')
+    ax.set_ylabel(f'{metric2} Score', fontsize=20, fontweight='bold')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim([0.6, 1.05])
+    ax.set_ylim([0.6, 1.05])
+
+
+def plot_performance_difference(ax, metric_data_list: Dict) -> None:
+    """Plot performance difference between first two methods."""
+    METRIC_COLORS = {'TRA': '#2ecc71', 'DET': '#e74c3c'}
+    # Get first two methods (assuming we're comparing two)
+    methods = metric_data_list[list(metric_data_list.keys())[0]]['methods']
+    if len(methods) != 2:
+        ax.text(0.5, 0.5, 'Comparison requires exactly 2 methods', 
+               ha='center', va='center', transform=ax.transAxes)
+        return
+    
+    method1, method2 = methods[0], methods[1]
+    datasets = metric_data_list[list(metric_data_list.keys())[0]]['datasets']
+    metrics = list(metric_data_list.keys())
+    
+    x = np.arange(len(datasets))
+    width = 0.35
+    
+    # Plot bars with distinct colors for TRA and DET
+    for i, metric in enumerate(metrics):
+        data = metric_data_list[metric]['data']
+        diff = np.array(data[method1]) - np.array(data[method2])
+        offset = (i - len(metrics) / 2 + 0.5) * width
+        color = METRIC_COLORS.get(metric, 'gray')
+        ax.bar(x + offset, diff, width, label=f'{metric}', alpha=0.85, color=color)
+    
+    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.8)
+    ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
+    ax.set_ylabel(f'Score Difference ({method1} - {method2})', fontsize=20, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(datasets, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(axis='y', alpha=0.3)
+
+
+def print_summary_statistics(df: pd.DataFrame, metrics: List[str]) -> None:
+    """Print comprehensive summary statistics."""
+    methods = sorted(df['method'].unique())
+    
+    print("\n" + "="*70)
+    print("SUMMARY STATISTICS")
+    print("="*70)
+    
+    for metric in metrics:
+        config = METRIC_CONFIGS.get(metric, {})
+        print(f"\n{metric} Metric: {config.get('label', metric)}")
+        
+        metric_stats = []
+        for method in methods:
+            method_df = df[df['method'] == method]
+            values = method_df[metric].values
+            mean = values.mean()
+            std = values.std()
+            min_val = values.min()
+            max_val = values.max()
+            
+            metric_stats.append((method, mean, std, min_val, max_val, values))
+            print(f"  {method:20s}: {mean:8.4f} ± {std:.4f} (min: {min_val:.4f}, max: {max_val:.4f})")
+        
+        # Compute pairwise differences
+        if len(methods) == 2:
+            m1, m2 = methods[0], methods[1]
+            diff = metric_stats[0][5] - metric_stats[1][5]
+            
+            is_higher_better = config.get('is_higher_better', True)
+            wins = np.sum(diff > 0) if is_higher_better else np.sum(diff < 0)
+            
+            print(f"  Difference ({m1} - {m2}): {diff.mean():+.4f} ± {diff.std():.4f}")
+            print(f"  {m1} wins: {wins}/{len(diff)}")
+    
+    print("\n" + "="*70)
+
+
+def save_plot(filename: str, output_dir: Path = None) -> Path:
+    """Save current figure as a high-resolution PNG file."""
+    if output_dir is None:
+        output_dir = Path(__file__).parent
+    output_path = output_dir / filename
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"  ✓ Saved {filename}")
+    plt.close()
+    return output_path
+
+
+def main():
+    """Main execution function."""
+    csv_path = Path(__file__).parent / "ctc_benchmark_results.csv"
+    output_dir = csv_path.parent
+    
+    # Load and validate data
+    df = load_data(csv_path)
+    metrics = list(METRIC_CONFIGS.keys())
+    methods = sorted(df['method'].unique())
+    
+    # Pre-compute all metric comparisons
+    metric_data_list = {metric: compute_metric_by_dataset(df, metric) for metric in metrics}
+    
+    print("\n" + "="*70)
+    print("GENERATING INDIVIDUAL PLOTS")
+    print("="*70)
+    
+    # 1. Overall comparison
+    plt.figure(figsize=(10, 6))
+    plot_overall_comparison(plt.gca(), df, metrics, methods)
+    save_plot("ctc_results/01_overall_comparison.png", output_dir)
+    
+    # 2-4. Per-dataset comparisons for each metric
+    for metric in metrics:
+        plt.figure(figsize=(14, 6))
+        plot_metric_by_dataset(plt.gca(), metric_data_list[metric], metric, METRIC_CONFIGS[metric])
+        filename = f"02_metric_{metric.lower()}_by_dataset.png"
+        save_plot(filename, output_dir)
+    
+    # 5. Scatter plot
+    plt.figure(figsize=(10, 8))
+    plot_scatter_metrics(plt.gca(), df)
+    save_plot("ctc_results/03_scatter_tra_vs_det.png", output_dir)
+    
+    # 6. Performance difference
+    plt.figure(figsize=(14, 6))
+    plot_performance_difference(plt.gca(), metric_data_list)
+    save_plot("ctc_results/04_performance_difference.png", output_dir)
+    
+    # Print statistics
+    print_summary_statistics(df, metrics)
+
+
+if __name__ == '__main__':
+    main()
+
+
