@@ -90,14 +90,15 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
     
     ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
     ax.set_ylabel(f'{metric} Score', fontsize=20, fontweight='bold')
+    ax.set_yscale('log' if not metric_config['is_higher_better'] else 'linear')
     ax.set_xticks(x)
     ax.set_xticklabels(datasets, rotation=45, ha='right')
-    ax.legend()
+    ax.legend(loc='best')
     ax.grid(axis='y', alpha=0.3)
     
     # Set y-axis limits based on metric type
     if metric_config['is_higher_better']:
-        ax.set_ylim([0.6, 1.05])
+        ax.set_ylim([0.0, 1.05])
 
 
 def plot_scatter_metrics(ax, df: pd.DataFrame, metric1: str = 'DET', metric2: str = 'TRA') -> None:
@@ -111,8 +112,8 @@ def plot_scatter_metrics(ax, df: pd.DataFrame, metric1: str = 'DET', metric2: st
     ax.set_ylabel(f'{metric2} Score', fontsize=20, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
-    ax.set_xlim([0.6, 1.05])
-    ax.set_ylim([0.6, 1.05])
+    ax.set_xlim([0, 1.05])
+    ax.set_ylim([0, 1.05])
 
 
 def plot_performance_difference(ax, metric_data_list: Dict) -> None:
@@ -226,11 +227,6 @@ def main():
         plot_metric_by_dataset(plt.gca(), metric_data_list[metric], metric, METRIC_CONFIGS[metric])
         filename = f"02_metric_{metric.lower()}_by_dataset.png"
         save_plot(filename, output_dir)
-    
-    # 5. Scatter plot
-    plt.figure(figsize=(10, 8))
-    plot_scatter_metrics(plt.gca(), df)
-    save_plot("03_scatter_tra_vs_det.png", output_dir)
     
     # 6. Performance difference
     plt.figure(figsize=(14, 6))
