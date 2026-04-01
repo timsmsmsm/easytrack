@@ -308,15 +308,15 @@ class BtrackOptimizationWidget(Container):
             # Get segmentation
             segmentation = layer.data
             
-            # Validate
-            if segmentation.ndim != 3:
+            # Validate: accept 3D (T, Y, X) and 4D (T, Z, Y, X)
+            if segmentation.ndim not in (3, 4):
                 self.layer_stats_label.value = (
-                    f"<center><font color='red'>❌ Must be 3D (T,Y,X), got {segmentation.ndim}D</font></center>"
+                    f"<center><font color='red'>❌ Must be 3D (T, Y, X) or 4D (T, Z, Y, X), got {segmentation.ndim}D</font></center>"
                 )
                 self.start_button.enabled = False
                 return
             
-            T, Y, X = segmentation.shape
+            T = segmentation.shape[0]
             unique_labels = np.unique(segmentation)
             num_labels = len(unique_labels[unique_labels > 0])
             
