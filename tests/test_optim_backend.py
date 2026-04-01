@@ -365,6 +365,49 @@ class TestFillGapsInSegmentation:
         # Gap at t=2 should have been filled with at least one pixel of label 1
         assert np.any(result[2] == 1)
 
+    def test_gap_filling_centroid_occupied_2d(self):
+        """Test 2D gap filling when centroid position is occupied (forces radius>0 search)."""
+        seg = np.zeros((3, 10, 10), dtype=np.uint16)
+        # Label 1 at [4:7, 4:7] → centroid (5, 5); present at t=0 and t=2 (gap at t=1)
+        seg[0, 4:7, 4:7] = 1
+        seg[2, 4:7, 4:7] = 1
+        # At gap time t=1, occupy only the centroid position with label 2
+        # This forces the perimeter (radius>0) search for label 1
+        seg[1, 5, 5] = 2
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # Label 1 must be placed somewhere at t=1 (at perimeter around centroid)
+        assert np.any(result[1] == 1)
+
+    def test_gap_filling_centroid_occupied_4d(self):
+        """Test 4D gap filling when centroid is occupied (forces radius>0 3D surface search)."""
+        seg = np.zeros((3, 10, 10, 10), dtype=np.uint16)
+        # Label 1 at [4:7, 4:7, 4:7] → centroid (5, 5, 5); gap at t=1
+        seg[0, 4:7, 4:7, 4:7] = 1
+        seg[2, 4:7, 4:7, 4:7] = 1
+        # Occupy only the centroid voxel at t=1 with label 2
+        seg[1, 5, 5, 5] = 2
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # Label 1 must be placed somewhere at t=1 via the 3D surface search
+        assert np.any(result[1] == 1)
+
+    def test_gap_filling_many_gaps_print(self):
+        """Test that gap filling with more than 5 gaps triggers the summary print."""
+        seg = np.zeros((14, 10, 10), dtype=np.uint16)
+        # Label 1 appears only at even timepoints: 0, 2, 4, 6, 8, 10, 12
+        # → gaps at 1, 3, 5, 7, 9, 11 (6 gaps, more than the 5 printed explicitly)
+        for t in range(0, 13, 2):
+            seg[t, 4:6, 4:6] = 1
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # All odd timepoints up to the last label appearance should have label 1 filled in
+        for t in range(1, 13, 2):
+            assert np.any(result[t] == 1)
+
 
 class TestValidateSegmentation:
     """Tests for validate_segmentation function."""
