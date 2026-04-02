@@ -63,7 +63,7 @@ def _build_label_timepoints(segmentation):
     Build a dict mapping each label to the timepoints where it appears.
     
     Args:
-        segmentation: 3D array (T, Y, X)
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X)
         
     Returns:
         Dict[int, List[int]]: {label_id: [t0, t1, t2, ...]}
@@ -90,11 +90,13 @@ def _fill_gaps_in_segmentation(segmentation):
     of its last known position. This maintains track continuity for CTC format
     without requiring the full mask.
     
+    Works with both 3D (T, Y, X) and 4D (T, Z, Y, X) segmentation arrays.
+    
     Args:
-        segmentation: 3D array (T, Y, X) with integer labels
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
         
     Returns:
-        3D array with gaps filled
+        Array with same shape as input, with gaps filled
     """
     filled = segmentation.copy()
     label_timepoints = _build_label_timepoints(segmentation)
@@ -122,14 +124,14 @@ def _fill_gaps_in_segmentation(segmentation):
             # Find most recent frame where this label appeared
             prev_t = max([t for t in timepoints if t < gap_t])
             
-            # Get centroid of previous mask
+            # Get spatial coordinates of the label (works for 2D and 3D spatial)
             mask = (segmentation[prev_t] == label)
             if not np.any(mask):
                 continue
             
-            y_coords, x_coords = np.where(mask)
-            centroid_y = int(np.mean(y_coords))
-            centroid_x = int(np.mean(x_coords))
+            coords = np.argwhere(mask)  # Shape (N, spatial_ndim)
+            centroid = np.round(np.mean(coords, axis=0)).astype(int)
+            spatial_shape = mask.shape
             
             # Try to place placeholder at centroid or nearby
             placed = False
@@ -141,32 +143,48 @@ def _fill_gaps_in_segmentation(segmentation):
                     
                 if radius == 0:
                     # Try exact centroid
-                    candidates = [(centroid_y, centroid_x)]
-                else:
-                    # Try in expanding square around centroid
+                    candidates = [tuple(centroid)]
+                elif len(centroid) == 2:
+                    # 2D spatial (Y, X): expand over perimeter of square
+                    cy, cx = centroid
                     candidates = []
                     for dy in range(-radius, radius + 1):
                         for dx in range(-radius, radius + 1):
                             if abs(dy) == radius or abs(dx) == radius:  # Only perimeter
-                                y, x = centroid_y + dy, centroid_x + dx
-                                if 0 <= y < filled.shape[1] and 0 <= x < filled.shape[2]:
+                                y, x = cy + dy, cx + dx
+                                if 0 <= y < spatial_shape[0] and 0 <= x < spatial_shape[1]:
                                     candidates.append((y, x))
+                else:
+                    # 3D spatial (Z, Y, X): expand over surface of cube
+                    cz, cy, cx = centroid
+                    candidates = []
+                    for dz in range(-radius, radius + 1):
+                        for dy in range(-radius, radius + 1):
+                            for dx in range(-radius, radius + 1):
+                                if abs(dz) == radius or abs(dy) == radius or abs(dx) == radius:
+                                    z, y, x = cz + dz, cy + dy, cx + dx
+                                    if (0 <= z < spatial_shape[0] and
+                                            0 <= y < spatial_shape[1] and
+                                            0 <= x < spatial_shape[2]):
+                                        candidates.append((z, y, x))
                 
                 # Try to place at first available position
-                for y, x in candidates:
-                    if filled[gap_t, y, x] == 0:
-                        filled[gap_t, y, x] = label
-                        gap_details.append(f"Label {label}: t={gap_t} placeholder at ({y},{x})")
+                for spatial_pos in candidates:
+                    full_idx = (gap_t,) + spatial_pos
+                    if filled[full_idx] == 0:
+                        filled[full_idx] = label
+                        gap_details.append(f"Label {label}: t={gap_t} placeholder at {spatial_pos}")
                         placed = True
                         break
             
             if not placed:
-                # Last resort: find ANY empty pixel
+                # Last resort: find ANY empty pixel in the frame
                 empty_pixels = np.argwhere(filled[gap_t] == 0)
                 if len(empty_pixels) > 0:
-                    y, x = empty_pixels[0]
-                    filled[gap_t, y, x] = label
-                    gap_details.append(f"Label {label}: t={gap_t} placeholder at ({y},{x}) [fallback]")
+                    spatial_pos = tuple(empty_pixels[0])
+                    full_idx = (gap_t,) + spatial_pos
+                    filled[full_idx] = label
+                    gap_details.append(f"Label {label}: t={gap_t} placeholder at {spatial_pos} [fallback]")
                     placed = True
             
             if placed:
@@ -202,7 +220,8 @@ def _build_track_mapping_continuous(segmentation):
     Assumes gaps have already been filled.
     
     Args:
-        segmentation: 3D array (T, Y, X) with integer labels (gaps already filled)
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
+            (gaps already filled)
         
     Returns:
         List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0, 'end': 10}, ...]
@@ -273,7 +292,7 @@ def prepare_ground_truth_ctc(segmentation, output_dir):
     Fills temporal gaps and creates continuous tracks for optimization.
     
     Args:
-        segmentation: 3D array (T, Y, X) with integer labels
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
         output_dir: Path to output directory
         
     Returns:
@@ -327,11 +346,11 @@ def validate_segmentation(segmentation: np.ndarray) -> Tuple[bool, str]:
         Tuple of (is_valid, error_message)
         If valid, error_message is empty string
     """
-    # Check dimensions
-    if segmentation.ndim != 3:
-        return False, f"Segmentation must be 3D (T, Y, X), got {segmentation.ndim}D"
+    # Check dimensions: accept 3D (T, Y, X) and 4D (T, Z, Y, X)
+    if segmentation.ndim not in (3, 4):
+        return False, f"Segmentation must be 3D (T, Y, X) or 4D (T, Z, Y, X), got {segmentation.ndim}D"
     
-    T, Y, X = segmentation.shape
+    T = segmentation.shape[0]
     
     # Check minimum frames
     if T < 2:
@@ -394,7 +413,7 @@ def prepare_layer_for_optimization(
     print("PREPARING DATA FOR OPTIMIZATION")
     print("=" * 60)
     print(f"Layer: {labels_layer.name}")
-    print(f"Shape: {segmentation.shape} (T, Y, X)")
+    print(f"Shape: {segmentation.shape} ({'T, Z, Y, X' if segmentation.ndim == 4 else 'T, Y, X'})")
     print(f"Unique labels: {len(np.unique(segmentation)) - 1}")
     print(f"Voxel sizes: {voxel_sizes}")
     
