@@ -100,7 +100,7 @@ class BtrackOptimizationWidget(Container):
             widget_type="SpinBox",
             options={
                 "min": 0,
-                "max": 300,
+                "max": 3600,
                 "tooltip": "Maximum time for each trial"
             }
         )
