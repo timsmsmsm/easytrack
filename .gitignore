@@ -21,6 +21,10 @@ share/python-wheels/
 *.manifest
 *.spec
 
+#ctc data
+ctc_data/
+ctc_results/
+
 #optuna data
 *.db
 

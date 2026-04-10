@@ -163,7 +163,7 @@ class BtrackPresetWidget(Container):
             annotation=float,
             label="prob_not_assign",
             widget_type="FloatSlider",
-            options={"min": 0.0, "max": 0.5, "tooltip": PARAM_DESCRIPTIONS['prob_not_assign']}
+            options={"min": 0.0, "max": 1.0, "tooltip": PARAM_DESCRIPTIONS['prob_not_assign']}
         )
         
         # Division hypothesis toggle (0 or 1)
