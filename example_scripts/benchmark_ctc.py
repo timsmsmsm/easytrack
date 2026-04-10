@@ -96,6 +96,7 @@ from napari_easytrack.analysis.optim_backend import _build_label_timepoints
 from napari_easytrack.analysis.tracking import run_tracking_with_params
 from napari_easytrack.presets import get_presets
 from napari_easytrack.utils import clean_segmentation
+from prepare_wing_disc import prepare_dataset as prepare_wing_disc_dataset, WING_DISC_DATASETS
 
 import btrack
 
@@ -192,17 +193,18 @@ DATASETS: Dict[str, Dict] = {
         "url": "../example_data/2d_time",
         "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
         "is_3d": False,
+        "has_st": False,
         "sequences": ["01"],
         "downloadable": False,
     },
     "3d_wing_disc": {
-        "url": "../example_data/3d_wing_disc",
+        "url": "../example_data/z_tracking_example.tif",
         "description": "3D: Individual 3D cell shapes of Drosophila Wing Disc",
-        "is_3d": True,
+        "is_3d": False,
+        "has_st": False,
         "sequences": ["01"],
         "downloadable": False,
-    }
-}
+    }}
 
 # Default datasets to benchmark (those with silver truth for full coverage)
 DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
@@ -775,6 +777,18 @@ def run_btrack_baseline(
 
 from gt_filtering import filter_man_track_to_segmentation_v2 as filter_man_track_to_segmentation
 
+def _ensure_wing_disc_prepared(dataset_name: str, data_dir: Path) -> None:
+    """Auto-run prepare_wing_disc if GT structure doesn't exist yet."""
+    wing_disc_keys = {v["name"]: k for k, v in WING_DISC_DATASETS.items()}
+    if dataset_name not in wing_disc_keys:
+        return
+    gt_dir = data_dir / dataset_name / "01_GT"
+    if gt_dir.exists():
+        return
+    key = wing_disc_keys[dataset_name]
+    print(f"    Wing disc GT not found — running preparation automatically...")
+    prepare_wing_disc_dataset(key, data_dir)
+
 def benchmark_sequence(
     dataset_name: str,
     sequence: str,
@@ -797,6 +811,8 @@ def benchmark_sequence(
     res_dir_bt = dataset_dir / f"{sequence}_RES_btrack"
 
     try:
+        _ensure_wing_disc_prepared(dataset_name, dataset_dir.parent)
+
         if gt_only:
             seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
             seg_source = "GT only"
@@ -804,17 +820,26 @@ def benchmark_sequence(
                 print(f"  [skip] GT SEG directory not found: {seg_dir}")
                 return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found"}]
         else:
-            print("    Merging GT + ST segmentation …")
-            merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
-            if merged_dir is None:
-                print("    Falling back to GT SEG only")
-                seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-                seg_source = "GT only (merge failed)"
-                if not seg_dir.exists():
-                    return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found and merge failed"}]
+            info = DATASETS.get(dataset_name, {})
+            has_st = info.get("has_st", True)
+            if has_st:
+                print("    Merging GT + ST segmentation …")
+                merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
+                if merged_dir is None:
+                    print("    Falling back to GT SEG only")
+                    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+                    seg_source = "GT only (merge failed)"
+                    if not seg_dir.exists():
+                        return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found and merge failed"}]
+                else:
+                    seg_dir = merged_dir
+                    seg_source = "GT + ST merged"
             else:
-                seg_dir = merged_dir
-                seg_source = "GT + ST merged"
+                print("    No ST segmentation available, using GT SEG …")
+                seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+                seg_source = "GT only"
+                if not seg_dir.exists():
+                    return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found"}]
 
         print(f"    Loading segmentation ({seg_source}) …")
         segmentation = load_ctc_segmentation(seg_dir)
@@ -898,6 +923,7 @@ def _prepare_optimisation_data(
         create_dataset_structure,
     )
     
+    _ensure_wing_disc_prepared(dataset_dir.name, dataset_dir.parent)
 
     segmentation = load_ctc_segmentation(seg_source_dir)
     segmentation = segmentation.astype(np.uint16)
@@ -1137,21 +1163,25 @@ CROSS_VALIDATION_PAIRS = {
 WING_DISC_PAIR = ("2d_wing_disc_wound_healing", "3d_wing_disc")
 
 
-def _get_seg_dir(dataset_dir: Path, sequence: str, gt_only: bool) -> Path:
+def _get_seg_dir(dataset_dir: Path, sequence: str, gt_only: bool, dataset_name: str = "") -> Path:
     """Get the segmentation directory, merging GT+ST if needed."""
     if gt_only:
         seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
         if not seg_dir.exists():
             raise FileNotFoundError(f"GT SEG not found: {seg_dir}")
         return seg_dir
-    else:
+
+    info = DATASETS.get(dataset_name, {})
+    has_st = info.get("has_st", True)
+    if has_st:
         merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
         if merged_dir is not None:
             return merged_dir
-        seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-        if seg_dir.exists():
-            return seg_dir
-        raise FileNotFoundError(f"No segmentation found for {dataset_dir}/{sequence}")
+
+    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+    if seg_dir.exists():
+        return seg_dir
+    raise FileNotFoundError(f"No segmentation found for {dataset_dir}/{sequence}")
 
 
 def run_optimisation_benchmarks(
@@ -1188,8 +1218,8 @@ def run_optimisation_benchmarks(
             print(f"{'─'*70}")
             
             try:
-                train_seg_dir = _get_seg_dir(dataset_dir, train_seq, gt_only)
-                test_seg_dir = _get_seg_dir(dataset_dir, test_seq, gt_only)
+                train_seg_dir = _get_seg_dir(dataset_dir, train_seq, gt_only, dataset_name)
+                test_seg_dir = _get_seg_dir(dataset_dir, test_seq, gt_only, dataset_name)  
                 
                 pair_results = benchmark_optimisation(
                     dataset_name=dataset_name,
@@ -1224,12 +1254,12 @@ def run_optimisation_benchmarks(
                 print(f"{'─'*70}")
                 
                 try:
-                    train_seg_dir = _get_seg_dir(train_dir, "01", gt_only)
-                    test_seg_dir = _get_seg_dir(test_dir, "01", gt_only)
+                    train_seg_dir = _get_seg_dir(train_dir, "01", gt_only, train_ds)
+                    test_seg_dir = _get_seg_dir(test_dir, "01", gt_only, test_ds)
                     
                     pair_results = benchmark_optimisation(
-                        dataset_name="wing_disc",
-                        train_seq=f"{train_ds}_01", test_seq=f"{test_ds}_01",
+                        dataset_name=f"wing_disc_{train_ds}",
+                        train_seq="01", test_seq="01",
                         train_dataset_dir=train_dir, test_dataset_dir=test_dir,
                         train_seg_dir=train_seg_dir, test_seg_dir=test_seg_dir,
                         results_dir=results_dir, db_path=db_path,
@@ -1240,7 +1270,7 @@ def run_optimisation_benchmarks(
                     print(f"  ERROR: {exc}")
                     traceback.print_exc()
                     all_results.append({
-                        "dataset": "wing_disc", "sequence": f"{train_ds}->{test_ds}",
+                        "dataset": f"wing_disc_{train_ds}", "sequence": f"01->01",
                         "method": "optimised", "error": str(exc),
                     })
         else:
@@ -1254,7 +1284,7 @@ def run_optimisation_benchmarks(
             print(f"OPTIMISATION: {ds}/01 — train and evaluate on same (no cross-val partner)")
             print(f"{'─'*70}")
             try:
-                seg_dir = _get_seg_dir(ds_dir, "01", gt_only)
+                seg_dir = _get_seg_dir(ds_dir, "01", gt_only, ds)
                 pair_results = benchmark_optimisation(
                     dataset_name=ds,
                     train_seq="01", test_seq="01",
