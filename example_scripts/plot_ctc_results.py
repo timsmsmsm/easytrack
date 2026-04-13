@@ -20,7 +20,12 @@ plt.rcParams['figure.figsize'] = (16, 12)
 plt.rcParams['font.size'] = 10
 
 # Configuration
-COLORS = {'easytrack': '#1f77b4', 'btrack': '#ff7f0e'}
+COLORS = {
+    'easytrack': '#1f77b4',  # Blue
+    'btrack': '#ff7f0e',     # Orange
+    'train': '#2ca02c',      # Green
+    'test': '#d62728'        # Red
+}
 METRIC_CONFIGS = {
     'TRA': {'label': 'TRA (Tracking)', 'is_higher_better': True},
     'DET': {'label': 'DET (Detection)', 'is_higher_better': True},
@@ -76,29 +81,70 @@ def plot_overall_comparison(ax, df: pd.DataFrame, metrics: List[str], methods: L
 
 
 def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Dict) -> None:
-    """Plot per-dataset comparison for a specific metric."""
+    """Plot per-dataset comparison for a specific metric (publication-ready)."""
     datasets = metric_data['datasets']
     methods = metric_data['methods']
     data = metric_data['data']
     
     x = np.arange(len(datasets))
-    width = 0.35 if len(methods) == 2 else 0.25
-    
+
+    # Calculate bar width based on number of methods
+    # For 4 methods: width = 0.18, spacing factor = 0.05
+    num_methods = len(methods)
+    width = 0.15 if num_methods == 4 else (0.35 if num_methods == 2 else 0.25)
+
+    # Plot bars for each method with proper coloring
     for i, method in enumerate(methods):
-        offset = (i - len(methods) / 2 + 0.5) * width
-        ax.bar(x + offset, data[method], width, label=method, alpha=0.8, edgecolor='black')
-    
-    ax.set_xlabel('Dataset', fontsize=20, fontweight='bold')
-    ax.set_ylabel(f'{metric} Score', fontsize=20, fontweight='bold')
+        # Center the bars around each dataset position
+        offset = (i - num_methods / 2 + 0.5) * width
+        color = COLORS.get(method, f'C{i}')
+
+        # Prepare bar heights with minimum value for zero values
+        bar_heights = []
+        for val in data[method]:
+            if np.isnan(val):
+                bar_heights.append(np.nan)
+            elif val == 0.0:
+                bar_heights.append(0.02)  # Minimum height for visibility
+            else:
+                bar_heights.append(val)
+
+        bars = ax.bar(x + offset, bar_heights, width, label=method,
+                     alpha=0.85, edgecolor='black', linewidth=1.2, color=color)
+
+        # Add value labels on top of bars
+        for j, bar in enumerate(bars):
+            height = bar.get_height()
+            original_value = data[method][j]
+            if not np.isnan(original_value):
+                ax.text(bar.get_x() + bar.get_width() / 2., height,
+                       f'{original_value:.2f}', ha='center', va='bottom', fontsize=8)
+
+    # Styling
+    ax.set_xlabel('Dataset', fontsize=14, fontweight='bold', labelpad=10)
+    ax.set_ylabel(f'{metric} Score', fontsize=14, fontweight='bold', labelpad=10)
     ax.set_yscale('log' if not metric_config['is_higher_better'] else 'linear')
     ax.set_xticks(x)
-    ax.set_xticklabels(datasets, rotation=45, ha='right')
-    ax.legend(loc='best')
-    ax.grid(axis='y', alpha=0.3)
-    
+    ax.set_xticklabels(datasets, rotation=45, ha='right', fontsize=11)
+    ax.tick_params(axis='y', labelsize=11)
+
+    # Legend styling
+    ax.legend(loc='upper right', fontsize=11, frameon=True, fancybox=True,
+             shadow=True, edgecolor='gray', framealpha=0.95)
+
+    # Grid styling
+    ax.grid(axis='y', alpha=0.4, linestyle='--', linewidth=0.7)
+    ax.set_axisbelow(True)
+
     # Set y-axis limits based on metric type
     if metric_config['is_higher_better']:
         ax.set_ylim([0.0, 1.05])
+
+    # Improve layout
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.2)
+    ax.spines['bottom'].set_linewidth(1.2)
 
 
 def plot_scatter_metrics(ax, df: pd.DataFrame, metric1: str = 'DET', metric2: str = 'TRA') -> None:
