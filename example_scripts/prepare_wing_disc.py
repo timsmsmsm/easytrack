@@ -279,9 +279,9 @@ def prepare_dataset(
         print(f"  ERROR: Source file not found: {source}")
         return 1
 
-    # New structure: wing_disc/{sequence}/01_GT/
-    output_dir = data_dir / "wing_disc" / sequence
-    gt_dir = output_dir / "01_GT"
+    # New structure: wing_disc/{sequence}_GT/
+    output_dir = data_dir / "wing_disc"
+    gt_dir = output_dir / f"{sequence}_GT"
 
     if gt_dir.exists() and not force:
         print(f"  CTC structure already exists at {gt_dir}")
@@ -311,7 +311,7 @@ def prepare_dataset(
         print(f"  ERROR: Expected 3D stack (TYX or ZYX), got {seg.ndim}D")
         return 1
 
-    create_ctc_structure(seg, output_dir, divisions, sequence="01")
+    create_ctc_structure(seg, output_dir, divisions, sequence=sequence)
 
     div_str = f" ({len(divisions)} divisions)" if divisions else " (no divisions)"
     print(f"  Done!{div_str}")
