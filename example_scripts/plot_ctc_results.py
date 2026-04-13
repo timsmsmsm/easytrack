@@ -202,37 +202,58 @@ def save_plot(filename: str, output_dir: Path = None) -> Path:
 def main():
     """Main execution function."""
     csv_path = Path(__file__).parent / "ctc_results" / "ctc_benchmark_results.csv"
+    optimised_results_path = Path(__file__).parent / "ctc_results" / "optimisation_results.csv"
     output_dir = csv_path.parent
     
     # Load and validate data
     df = load_data(csv_path)
+    df_optimised = load_data(optimised_results_path)
+
+    # Group df_optimised by eval_type for each dataset and average metrics to compare with df
+    if 'eval_type' in df_optimised.columns:
+        metrics_to_avg = [m for m in METRIC_CONFIGS.keys() if m in df_optimised.columns]
+
+        # Group by eval_type and dataset, then average the metrics
+        df_optimised_grouped = df_optimised.groupby(['eval_type', 'dataset']).agg({
+            **{metric: 'mean' for metric in metrics_to_avg},
+            'method': 'first'  # Keep the method (should be same for each group)
+        }).reset_index()
+
+        df_optimised_grouped['method'] = df_optimised_grouped['eval_type']
+
+        # Use the aggregated version
+        df_optimised = df_optimised_grouped
+
+    # Concatenate both df_optimised and df into df
+    df = pd.concat([df, df_optimised], ignore_index=True)
     metrics = list(METRIC_CONFIGS.keys())
     methods = sorted(df['method'].unique())
-    
-    # Pre-compute all metric comparisons
-    metric_data_list = {metric: compute_metric_by_dataset(df, metric) for metric in metrics}
-    
+
+    eval_type_prefix = ""
     print("\n" + "="*70)
     print("GENERATING INDIVIDUAL PLOTS")
     print("="*70)
-    
+
+    # Pre-compute all metric comparisons for this eval_type
+    metric_data_list = {metric: compute_metric_by_dataset(df, metric) for metric in metrics}
+
     # 1. Overall comparison
     plt.figure(figsize=(10, 6))
     plot_overall_comparison(plt.gca(), df, metrics, methods)
-    save_plot("01_overall_comparison.png", output_dir)
-    
+    save_plot(f"{eval_type_prefix}01_overall_comparison.png", output_dir)
+
     # 2-4. Per-dataset comparisons for each metric
     for metric in metrics:
         plt.figure(figsize=(14, 6))
         plot_metric_by_dataset(plt.gca(), metric_data_list[metric], metric, METRIC_CONFIGS[metric])
-        filename = f"02_metric_{metric.lower()}_by_dataset.png"
+        filename = f"{eval_type_prefix}02_metric_{metric.lower()}_by_dataset.png"
         save_plot(filename, output_dir)
-    
+
     # 6. Performance difference
     plt.figure(figsize=(14, 6))
     plot_performance_difference(plt.gca(), metric_data_list)
-    save_plot("04_performance_difference.png", output_dir)
-    
+    save_plot(f"{eval_type_prefix}04_performance_difference.png", output_dir)
+
     # Print statistics
     print_summary_statistics(df, metrics)
 
