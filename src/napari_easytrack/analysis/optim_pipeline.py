@@ -332,6 +332,10 @@ def optimize_dataset_with_timeout(dataset, gt_data, objectives, study_name, n_tr
 
     study = optuna.create_study(directions=direction, study_name=study_name, storage=storage, load_if_exists=True, sampler=sampler_options[sampler])
 
+    # If the study already has more trials than the specified number, skip optimization to avoid overwriting results
+    if len(study.trials) > n_trials:
+        return study
+
     # Counter for completed trials to enable staggering only at start
     completed_trials = [0]  # Use list to make it mutable in closure
     
@@ -745,6 +749,12 @@ def optimize_dataset(dataset, gt_data, objectives, study_name, n_trials=64, use_
         study = optuna.create_study(directions=["minimize"], study_name=study_name, storage="sqlite:///btrack.db", load_if_exists=True, sampler=sampler)
     if objectives == '2obj':
         study = optuna.create_study(directions=["minimize", "maximize"], study_name=study_name, storage="sqlite:///btrack.db", load_if_exists=True, sampler=sampler)
+    else:
+        raise ValueError("unknown objective selected")
+
+    # If the study already has more trials than the specified number, skip optimization to avoid overwriting results
+    if len(study.trials) > n_trials:
+        return study
 
     if use_parallel_backend:
         with parallel_backend('multiprocessing'):
