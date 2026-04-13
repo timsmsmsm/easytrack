@@ -50,9 +50,10 @@ import tifffile
 WING_DISC_DATASETS = {
     "2d": {
         "name": "2d_wing_disc_wound_healing",
-        "source": "example_data/2d_time/2d_time_gt.tif",
+        "source": "../example_data/2d_time/2d_time_gt.tif",
         "description": "2D+T wound healing",
         "is_3d": False,
+        "sequence": "01",
         # CTC convention: parent track must END before daughters START.
         # Since the parent label continues in the segmentation, we split
         # it into a pre-division track (new ID) and a post-division track
@@ -65,9 +66,10 @@ WING_DISC_DATASETS = {
     },
     "3d": {
         "name": "3d_wing_disc",
-        "source": "example_data/z_tracking_example.tif",
+        "source": "../example_data/z_tracking_example.tif",
         "description": "3D cell shapes (tracking through z)",
         "is_3d": True,
+        "sequence": "02",
         "divisions": [],
     },
 }
@@ -267,6 +269,7 @@ def prepare_dataset(
     name = info["name"]
     source = Path(info["source"]).resolve()
     divisions = info["divisions"]
+    sequence = info["sequence"]
 
     print(f"\n{'─' * 60}")
     print(f"Preparing: {name} ({info['description']})")
@@ -276,7 +279,8 @@ def prepare_dataset(
         print(f"  ERROR: Source file not found: {source}")
         return 1
 
-    output_dir = data_dir / name
+    # New structure: wing_disc/{sequence}/01_GT/
+    output_dir = data_dir / "wing_disc" / sequence
     gt_dir = output_dir / "01_GT"
 
     if gt_dir.exists() and not force:
