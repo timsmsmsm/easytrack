@@ -189,25 +189,18 @@ DATASETS: Dict[str, Dict] = {
         "sequences": ["01", "02"],
         "downloadable": True,
     },
-    "2d_wing_disc_wound_healing": {
+    "wing_disc": {
         "url": "../example_data/2d_time",
-        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
+        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data) and 3D: Individual 3D cell shapes of Drosophila Wing Disc",
         "is_3d": False,
         "has_st": False,
-        "sequences": ["01"],
+        "sequences": ["01", "02"],
         "downloadable": False,
     },
-    "3d_wing_disc": {
-        "url": "../example_data/z_tracking_example.tif",
-        "description": "3D: Individual 3D cell shapes of Drosophila Wing Disc",
-        "is_3d": False,
-        "has_st": False,
-        "sequences": ["01"],
-        "downloadable": False,
-    }}
+}
 
 # Default datasets to benchmark (those with silver truth for full coverage)
-DEFAULT_DATASETS = ["2d_wing_disc_wound_healing", "3d_wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
+DEFAULT_DATASETS = ["wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
 
 
 # ---------------------------------------------------------------------------
@@ -1158,10 +1151,8 @@ CROSS_VALIDATION_PAIRS = {
     "Fluo-N2DH-GOWT1": [("01", "02"), ("02", "01")],
     "Fluo-C2DL-Huh7": [("01", "02"), ("02", "01")],
     "Fluo-C3DH-A549-SIM": [("01", "02"), ("02", "01")],
+    "wing_disc": [("01", "02"), ("02", "01")],
 }
-
-WING_DISC_PAIR = ("2d_wing_disc_wound_healing", "3d_wing_disc")
-
 
 def _get_seg_dir(dataset_dir: Path, sequence: str, gt_only: bool, dataset_name: str = "") -> Path:
     """Get the segmentation directory, merging GT+ST if needed."""
@@ -1196,10 +1187,7 @@ def run_optimisation_benchmarks(
 ) -> list[dict]:
     """Run optimisation benchmarks with cross-validation for all requested datasets."""
     all_results = []
-    
-    wing_disc_datasets = set(WING_DISC_PAIR)
-    wing_disc_requested = [d for d in datasets_to_run if d in wing_disc_datasets]
-    standard_datasets = [d for d in datasets_to_run if d not in wing_disc_datasets]
+    standard_datasets = [d for d in datasets_to_run]
     
     # Standard datasets: cross-validate within dataset
     for dataset_name in standard_datasets:
@@ -1237,66 +1225,6 @@ def run_optimisation_benchmarks(
                     "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
                     "method": "optimised", "error": str(exc),
                 })
-    
-    # Wing disc cross-dataset pairing
-    if len(wing_disc_requested) == 2:
-        ds_a, ds_b = WING_DISC_PAIR
-        dir_a = data_dir / ds_a
-        dir_b = data_dir / ds_b
-        
-        if dir_a.exists() and dir_b.exists():
-            for train_ds, test_ds, train_dir, test_dir in [
-                (ds_a, ds_b, dir_a, dir_b),
-                (ds_b, ds_a, dir_b, dir_a),
-            ]:
-                print(f"\n{'─'*70}")
-                print(f"OPTIMISATION: train on {train_ds}/01, test on {test_ds}/01")
-                print(f"{'─'*70}")
-                
-                try:
-                    train_seg_dir = _get_seg_dir(train_dir, "01", gt_only, train_ds)
-                    test_seg_dir = _get_seg_dir(test_dir, "01", gt_only, test_ds)
-                    
-                    pair_results = benchmark_optimisation(
-                        dataset_name=f"wing_disc_{train_ds}",
-                        train_seq="01", test_seq="01",
-                        train_dataset_dir=train_dir, test_dataset_dir=test_dir,
-                        train_seg_dir=train_seg_dir, test_seg_dir=test_seg_dir,
-                        results_dir=results_dir, db_path=db_path,
-                        n_random=n_random, n_tpe=n_tpe, timeout=timeout,
-                    )
-                    all_results.extend(pair_results)
-                except Exception as exc:
-                    print(f"  ERROR: {exc}")
-                    traceback.print_exc()
-                    all_results.append({
-                        "dataset": f"wing_disc_{train_ds}", "sequence": f"01->01",
-                        "method": "optimised", "error": str(exc),
-                    })
-        else:
-            print(f"  [skip] Wing disc datasets not both present")
-    
-    elif len(wing_disc_requested) == 1:
-        ds = wing_disc_requested[0]
-        ds_dir = data_dir / ds
-        if ds_dir.exists():
-            print(f"\n{'─'*70}")
-            print(f"OPTIMISATION: {ds}/01 — train and evaluate on same (no cross-val partner)")
-            print(f"{'─'*70}")
-            try:
-                seg_dir = _get_seg_dir(ds_dir, "01", gt_only, ds)
-                pair_results = benchmark_optimisation(
-                    dataset_name=ds,
-                    train_seq="01", test_seq="01",
-                    train_dataset_dir=ds_dir, test_dataset_dir=ds_dir,
-                    train_seg_dir=seg_dir, test_seg_dir=seg_dir,
-                    results_dir=results_dir, db_path=db_path,
-                    n_random=n_random, n_tpe=n_tpe, timeout=timeout,
-                )
-                all_results.extend(pair_results)
-            except Exception as exc:
-                print(f"  ERROR: {exc}")
-                traceback.print_exc()
     
     return all_results
 
