@@ -682,7 +682,8 @@ class TestCleanDirectory:
 
     def test_handles_nonexistent_directory(self):
         """Test that a non-existent directory is handled gracefully."""
-        nonexistent = Path("/tmp/nonexistent_clean_dir_abc123")
+        import tempfile as _tf
+        nonexistent = Path(_tf.gettempdir()) / "nonexistent_clean_dir_abc123"
         _clean_directory(nonexistent)  # Should not raise
 
     def test_removes_tif_files(self):
@@ -717,7 +718,8 @@ class TestCleanCtcDirectoryExtra:
 
     def test_handles_nonexistent_directory(self):
         """Test that a non-existent directory is handled gracefully."""
-        nonexistent = Path("/tmp/nonexistent_ctc_dir_xyz789")
+        import tempfile as _tf
+        nonexistent = Path(_tf.gettempdir()) / "nonexistent_ctc_dir_xyz789"
         _clean_ctc_directory(nonexistent)  # Should not raise
 
 
