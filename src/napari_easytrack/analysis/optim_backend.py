@@ -63,6 +63,17 @@ def _clean_directory(directory: Path, pattern: str = "*.tif"):
         txt_file.unlink()
 
 
+def _clean_ctc_directory(directory: Path):
+    """Remove CTC tracking files (man_track*.tif and man_track.txt) from a directory."""
+    if not directory.exists():
+        return
+    for old_file in directory.glob("man_track*.tif"):
+        old_file.unlink()
+    txt_file = directory / 'man_track.txt'
+    if txt_file.exists():
+        txt_file.unlink()
+
+
 def _build_label_timepoints(segmentation):
     """
     Build a dict mapping each label to the timepoints where it appears.
