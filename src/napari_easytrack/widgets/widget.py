@@ -65,7 +65,7 @@ PARAM_DESCRIPTIONS = {
         "Use this to handle noisy segmentation where some detections might be artifacts, "
         "debris, or segmentation errors.\n\n"
         "Lower values (0.01-0.05): Most detections are real cells.\n"
-        "Higher values (0.2-0.5): More detections might be spurious artifacts."
+        "Higher values (0.5-1.0): More detections might be spurious artifacts."
     ),
     'div_hypothesis': (
         "Division Hypothesis\n\n"

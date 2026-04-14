@@ -341,6 +341,73 @@ class TestFillGapsInSegmentation:
         assert np.any(result[2] == 2)
         assert np.any(result[3] == 2)
 
+    def test_4d_no_gaps(self):
+        """Test 4D (T, Z, Y, X) segmentation with no gaps is unchanged."""
+        seg = np.zeros((4, 5, 20, 20), dtype=np.uint16)
+        for t in range(4):
+            seg[t, 1:3, 5:10, 5:10] = 1
+        
+        result = _fill_gaps_in_segmentation(seg)
+        
+        np.testing.assert_array_equal(result, seg)
+
+    def test_4d_simple_gap(self):
+        """Test filling a gap in 4D (T, Z, Y, X) segmentation."""
+        seg = np.zeros((5, 5, 20, 20), dtype=np.uint16)
+        # Label 1 present at t=0, t=1, t=3, t=4 (gap at t=2)
+        seg[0, 1:3, 5:10, 5:10] = 1
+        seg[1, 1:3, 5:10, 5:10] = 1
+        seg[3, 1:3, 5:10, 5:10] = 1
+        seg[4, 1:3, 5:10, 5:10] = 1
+        
+        result = _fill_gaps_in_segmentation(seg)
+        
+        # Gap at t=2 should have been filled with at least one pixel of label 1
+        assert np.any(result[2] == 1)
+
+    def test_gap_filling_centroid_occupied_2d(self):
+        """Test 2D gap filling when centroid position is occupied (forces radius>0 search)."""
+        seg = np.zeros((3, 10, 10), dtype=np.uint16)
+        # Label 1 at [4:7, 4:7] → centroid (5, 5); present at t=0 and t=2 (gap at t=1)
+        seg[0, 4:7, 4:7] = 1
+        seg[2, 4:7, 4:7] = 1
+        # At gap time t=1, occupy only the centroid position with label 2
+        # This forces the perimeter (radius>0) search for label 1
+        seg[1, 5, 5] = 2
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # Label 1 must be placed somewhere at t=1 (at perimeter around centroid)
+        assert np.any(result[1] == 1)
+
+    def test_gap_filling_centroid_occupied_4d(self):
+        """Test 4D gap filling when centroid is occupied (forces radius>0 3D surface search)."""
+        seg = np.zeros((3, 10, 10, 10), dtype=np.uint16)
+        # Label 1 at [4:7, 4:7, 4:7] → centroid (5, 5, 5); gap at t=1
+        seg[0, 4:7, 4:7, 4:7] = 1
+        seg[2, 4:7, 4:7, 4:7] = 1
+        # Occupy only the centroid voxel at t=1 with label 2
+        seg[1, 5, 5, 5] = 2
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # Label 1 must be placed somewhere at t=1 via the 3D surface search
+        assert np.any(result[1] == 1)
+
+    def test_gap_filling_many_gaps_print(self):
+        """Test that gap filling with more than 5 gaps triggers the summary print."""
+        seg = np.zeros((14, 10, 10), dtype=np.uint16)
+        # Label 1 appears only at even timepoints: 0, 2, 4, 6, 8, 10, 12
+        # → gaps at 1, 3, 5, 7, 9, 11 (6 gaps, more than the 5 printed explicitly)
+        for t in range(0, 13, 2):
+            seg[t, 4:6, 4:6] = 1
+
+        result = _fill_gaps_in_segmentation(seg)
+
+        # All odd timepoints up to the last label appearance should have label 1 filled in
+        for t in range(1, 13, 2):
+            assert np.any(result[t] == 1)
+
 
 class TestValidateSegmentation:
     """Tests for validate_segmentation function."""
@@ -365,14 +432,45 @@ class TestValidateSegmentation:
         assert is_valid is False
         assert "must be 3D" in error
 
-    def test_wrong_dimensions_4d(self):
-        """Test that 4D array is rejected."""
-        seg = np.zeros((5, 10, 20, 20), dtype=np.uint16)
+    def test_wrong_dimensions_5d(self):
+        """Test that 5D array is rejected."""
+        seg = np.zeros((5, 3, 10, 20, 20), dtype=np.uint16)
+        seg[0, 0, 2:5, 2:5, 2:5] = 1
         
         is_valid, error = validate_segmentation(seg)
         
         assert is_valid is False
-        assert "must be 3D" in error
+        assert "must be 3D (T, Y, X) or 4D" in error
+
+    def test_wrong_dimensions_4d(self):
+        """Test that 4D array (T, Z, Y, X) is now valid (3D+time support)."""
+        seg = np.zeros((5, 10, 20, 20), dtype=np.uint16)
+        seg[0, 2:5, 2:5, 2:5] = 1
+        seg[1, 2:5, 2:5, 2:5] = 1
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is True
+        assert error == ""
+
+    def test_4d_too_few_timepoints(self):
+        """Test that 4D array with single timepoint is rejected."""
+        seg = np.zeros((1, 5, 20, 20), dtype=np.uint16)
+        seg[0, 2:4, 5:10, 5:10] = 1
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "at least 2 time frames" in error
+
+    def test_4d_no_labels(self):
+        """Test that all-zero 4D segmentation is rejected."""
+        seg = np.zeros((5, 5, 20, 20), dtype=np.uint16)
+        
+        is_valid, error = validate_segmentation(seg)
+        
+        assert is_valid is False
+        assert "No labels found" in error
 
     def test_too_few_timepoints(self):
         """Test that single timepoint is rejected."""

@@ -46,6 +46,7 @@ dependencies = [
     "joblib",
     "traccuracy",
     "numba==0.62.1",
+    "geff",
 ]
 
 [project.optional-dependencies]
