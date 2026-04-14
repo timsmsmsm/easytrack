@@ -5,7 +5,7 @@ Backend for preparing napari Labels layers for btrack optimization.
 This module handles:
 - Converting napari Labels layers to CTC format
 - Creating temporary directory structures
-- Preparing ground truth data (filling gaps, no divisions)
+- Preparing ground truth data (sparse masks, continuous tracks)
 - Creating dataset objects for optimization
 """
 
@@ -50,12 +50,28 @@ class CellTrackingChallengeDataset:
         scaled_dims = [dims[idx]*self.scale[idx] for idx in range(ndim)]
         return tuple(zip([0]*ndim, scaled_dims))
 
-def _clean_ctc_directory(tra_dir: Path):
-    """Remove any existing CTC files from previous runs."""
-    for old_file in tra_dir.glob("man_track*.tif"):
+
+def _clean_directory(directory: Path, pattern: str = "*.tif"):
+    """Remove any existing files matching pattern from a directory."""
+    if not directory.exists():
+        return
+    for old_file in directory.glob(pattern):
         old_file.unlink()
-    if (tra_dir / 'man_track.txt').exists():
-        (tra_dir / 'man_track.txt').unlink()
+    # Also clean man_track.txt if present
+    txt_file = directory / 'man_track.txt'
+    if txt_file.exists():
+        txt_file.unlink()
+
+
+def _clean_ctc_directory(directory: Path):
+    """Remove CTC tracking files (man_track*.tif and man_track.txt) from a directory."""
+    if not directory.exists():
+        return
+    for old_file in directory.glob("man_track*.tif"):
+        old_file.unlink()
+    txt_file = directory / 'man_track.txt'
+    if txt_file.exists():
+        txt_file.unlink()
 
 
 def _build_label_timepoints(segmentation):
@@ -84,19 +100,18 @@ def _build_label_timepoints(segmentation):
 
 def _fill_gaps_in_segmentation(segmentation):
     """
-    Fill temporal gaps in segmentation with placeholder pixels.
+    Fill temporal gaps in a segmentation by inserting placeholder pixels.
     
-    For each label with gaps, place a single placeholder pixel at the centroid
-    of its last known position. This maintains track continuity for CTC format
-    without requiring the full mask.
-    
-    Works with both 3D (T, Y, X) and 4D (T, Z, Y, X) segmentation arrays.
+    For each label with temporal gaps (missing timepoints between first and
+    last appearance), inserts a single pixel at or near the centroid of the
+    label's previous frame.  Works with both 3D (T, Y, X) and 4D (T, Z, Y, X)
+    segmentation arrays.
     
     Args:
         segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
         
     Returns:
-        Array with same shape as input, with gaps filled
+        Array with same shape as input, with gaps filled by placeholder pixels
     """
     filled = segmentation.copy()
     label_timepoints = _build_label_timepoints(segmentation)
@@ -212,19 +227,74 @@ def _fill_gaps_in_segmentation(segmentation):
     return filled
 
 
+def _build_track_mapping_split_at_gaps(segmentation):
+    """
+    Build mapping from original labels to CTC track segments, splitting at gaps.
+    
+    Each label is split into continuous sub-segments linked via parent IDs.
+    
+    Args:
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
+        
+    Returns:
+        List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0,
+                         'end': 1, 'parent_id': 0}, ...]
+    """
+    label_timepoints = _build_label_timepoints(segmentation)
+    
+    track_mapping = []
+    new_track_id = 1
+    
+    for original_label, timepoints in sorted(label_timepoints.items()):
+        timepoints_sorted = sorted(timepoints)
+        
+        # Split into continuous segments
+        segments = []
+        seg_start = timepoints_sorted[0]
+        prev_t = timepoints_sorted[0]
+        
+        for t in timepoints_sorted[1:]:
+            if t == prev_t + 1:
+                prev_t = t
+            else:
+                segments.append((seg_start, prev_t))
+                seg_start = t
+                prev_t = t
+        segments.append((seg_start, prev_t))
+        
+        # Create track entries with parent linkage across gaps
+        prev_segment_id = 0
+        for start, end in segments:
+            track_mapping.append({
+                'new_id': new_track_id,
+                'original_label': original_label,
+                'start': start,
+                'end': end,
+                'parent_id': prev_segment_id,
+            })
+            prev_segment_id = new_track_id
+            new_track_id += 1
+    
+    return track_mapping
+
+
 def _build_track_mapping_continuous(segmentation):
     """
     Build mapping from original labels to new track IDs WITHOUT splitting.
     
-    Each original label becomes one continuous track from its first to last appearance.
-    Assumes gaps have already been filled.
+    Each label produces exactly ONE track entry spanning from its first to its
+    last appearance, even if the label has temporal gaps in between.
+    
+    Example: label 1 present at t=0,1,3,4,9 becomes:
+        segment 1: t=0-9, parent=0  (single entry covering full span)
     
     Args:
-        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
-            (gaps already filled)
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels.
+            Labels may have temporal gaps between first and last appearance.
         
     Returns:
-        List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0, 'end': 10}, ...]
+        List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0, 
+                         'end': 9, 'parent_id': 0}, ...]
     """
     n_timepoints = segmentation.shape[0]
     label_timepoints = _build_label_timepoints(segmentation)
@@ -236,31 +306,48 @@ def _build_track_mapping_continuous(segmentation):
     track_mapping = []
     new_track_id = 1
     
-    for original_label, timepoints in label_timepoints.items():
-        # Don't split! Each label is one continuous track
-        start = min(timepoints)
-        end = max(timepoints)
+    for original_label, timepoints in sorted(label_timepoints.items()):
+        timepoints_sorted = sorted(timepoints)
+        
+        # One segment spanning from first to last appearance (no splitting at gaps)
+        start = timepoints_sorted[0]
+        end = timepoints_sorted[-1]
         
         track_mapping.append({
             'new_id': new_track_id,
             'original_label': original_label,
             'start': start,
-            'end': end
+            'end': end,
+            'parent_id': 0,
         })
         new_track_id += 1
     
-    print(f"  Created {len(track_mapping)} continuous tracks (no splits)")
+    n_segments = len(track_mapping)
+    print(f"  Created {n_segments} track segments from {n_labels} labels")
+    
     return track_mapping
 
 
 def _write_ctc_files(segmentation, track_mapping, tra_dir: Path):
-    """Write both man_track.txt and segmentation TIFFs."""
-    # Write tracking file
+    """
+    Write man_track.txt and segmentation TIFFs for CTC ground truth.
+    
+    Each track segment only spans its actual continuous frames, so every
+    timepoint listed in man_track.txt has a corresponding mask. Segments
+    of the same original label are linked via parent IDs, creating edges
+    across temporal gaps that the AOGM metric will evaluate.
+    
+    Args:
+        segmentation: 3D array (T, Y, X) — the ORIGINAL segmentation (with gaps)
+        track_mapping: list of track dicts from _build_track_mapping_split_at_gaps
+        tra_dir: directory to write files into
+    """
+    # Write tracking file with parent linkage
     with open(tra_dir / 'man_track.txt', 'w') as f:
         for track in track_mapping:
-            f.write(f"{track['new_id']} {track['start']} {track['end']} 0\n")
+            f.write(f"{track['new_id']} {track['start']} {track['end']} {track.get('parent_id', 0)}\n")
     
-    # Group tracks by timepoint for efficient relabeling
+    # Group tracks by timepoint for efficient relabelling
     tracks_by_time = {}
     for track in track_mapping:
         for t in range(track['start'], track['end'] + 1):
@@ -273,7 +360,6 @@ def _write_ctc_files(segmentation, track_mapping, tra_dir: Path):
     for t in range(n_timepoints):
         relabeled = np.zeros_like(segmentation[t])
         
-        # Only process tracks active at this timepoint
         if t in tracks_by_time:
             for track in tracks_by_time[t]:
                 mask = (segmentation[t] == track['original_label'])
@@ -282,58 +368,79 @@ def _write_ctc_files(segmentation, track_mapping, tra_dir: Path):
         filename = tra_dir / f"man_track{t:04d}.tif"
         io.imsave(filename, relabeled.astype(np.uint16), check_contrast=False)
     
-    print(f"  Created {n_timepoints} TIF files (man_track0000.tif to man_track{n_timepoints-1:04d}.tif)")
+    # Count frames with actual data vs empty
+    frames_with_data = sum(1 for t in range(n_timepoints) if np.any(segmentation[t] > 0))
+    print(f"  Created {n_timepoints} TIF files ({frames_with_data} with masks, "
+          f"{n_timepoints - frames_with_data} empty)")
 
 
 def prepare_ground_truth_ctc(segmentation, output_dir):
     """
     Convert segmentation to CTC format ground truth.
     
-    Fills temporal gaps and creates continuous tracks for optimization.
+    Splits each label into continuous track segments at temporal gaps,
+    linked via parent IDs. This means:
+    - Every track listed in man_track.txt has masks at all its timepoints
+      (satisfies traccuracy's CTC validation)
+    - Edges across gaps are expected via parent linkage, so the AOGM
+      penalises btrack for failing to link across gaps
+    - No placeholder pixels are inserted — btrack tracks on real data
     
     Args:
         segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
         output_dir: Path to output directory
         
     Returns:
-        Path to TRA directory
+        Tuple of (tra_dir Path, segmentation unchanged)
     """
     output_dir = Path(output_dir)
     tra_dir = output_dir / '01_GT' / 'TRA'
     tra_dir.mkdir(parents=True, exist_ok=True)
     
-    _clean_ctc_directory(tra_dir)
+    # Clean any files from previous runs
+    _clean_directory(tra_dir)
     
-    # FIRST: Fill any temporal gaps
-    filled_segmentation = _fill_gaps_in_segmentation(segmentation)
+    # Build continuous track mapping (one segment per label, spanning first to last appearance)
+    print(f"  Building track segments from original segmentation...")
+    track_mapping = _build_track_mapping_continuous(segmentation)
     
-    # THEN: Build continuous track mapping (no splits)
-    track_mapping = _build_track_mapping_continuous(filled_segmentation)
+    # Write CTC files using original segmentation (no placeholders)
+    _write_ctc_files(segmentation, track_mapping, tra_dir)
     
-    # Write CTC files with filled segmentation
-    _write_ctc_files(filled_segmentation, track_mapping, tra_dir)
-    
-    return tra_dir, filled_segmentation
+    return tra_dir, segmentation
 
 
-
-def create_dataset_structure(filled_segmentation: np.ndarray, output_dir: Path) -> Path:
-    """Create dataset structure - with gap filling to match GT."""
+def create_dataset_structure(segmentation: np.ndarray, output_dir: Path) -> Path:
+    """
+    Create dataset structure for btrack to track on.
+    
+    Uses the original segmentation as-is (with any temporal gaps).
+    
+    Args:
+        segmentation: 3D array (T, Y, X) — original segmentation
+        output_dir: Path to output directory
+        
+    Returns:
+        Path to dataset root directory
+    """
     output_dir = Path(output_dir)
     dataset_dir = output_dir / '01'
     dataset_dir.mkdir(parents=True, exist_ok=True)
     
-    T = filled_segmentation.shape[0]
+    # Clean any files from previous runs
+    _clean_directory(dataset_dir)
     
-    # Save frames as t*.tif (gap-filled to match GT)
+    T = segmentation.shape[0]
+    
     for t in range(T):
         io.imsave(
             dataset_dir / f't{t:03d}.tif', 
-            filled_segmentation[t].astype(np.uint16),
+            segmentation[t].astype(np.uint16),
             check_contrast=False
         )
     
     return output_dir
+
 
 def validate_segmentation(segmentation: np.ndarray) -> Tuple[bool, str]:
     """
@@ -379,8 +486,12 @@ def prepare_layer_for_optimization(
     Prepare napari Labels layer for btrack optimization.
     
     Creates CTC format structure and returns dataset + gt_data objects.
-    Ground truth has gaps filled to create continuous tracks with edges.
-    Dataset uses original segmentation (without gap filling).
+    
+    Both the dataset (what btrack tracks on) and the ground truth TIF masks
+    use the original segmentation with gaps intact. The ground truth
+    man_track.txt spans each track's full range so that edges across gaps
+    are expected — this way the AOGM penalises broken links but not
+    missing detections in gap frames.
     
     Args:
         labels_layer: napari Labels layer containing segmentation
@@ -417,14 +528,16 @@ def prepare_layer_for_optimization(
     print(f"Unique labels: {len(np.unique(segmentation)) - 1}")
     print(f"Voxel sizes: {voxel_sizes}")
     
-    # Create ground truth in CTC format (fills gaps, creates continuous tracks)
-    print("\nCreating ground truth (CTC format with gap filling)...")
+    # Create ground truth in CTC format
+    # - man_track.txt: tracks span full range (edges across gaps are expected)
+    # - TIF masks: only where original segmentation has data (no placeholders)
+    print("\nCreating ground truth (CTC format, sparse masks)...")
     gt_dir = work_dir / 'GT'
-    tra_dir, filled_segmentation = prepare_ground_truth_ctc(segmentation, gt_dir)
+    tra_dir, _ = prepare_ground_truth_ctc(segmentation, gt_dir)
     
-    # Create dataset structure (original segmentation, no gap filling)
+    # Create dataset structure (original segmentation for btrack to track on)
     print("\nCreating dataset structure (original segmentation)...")
-    dataset_root = create_dataset_structure(filled_segmentation, work_dir / 'dataset')
+    dataset_root = create_dataset_structure(segmentation, work_dir / 'dataset')
     
     # Load ground truth data
     print("\nLoading ground truth data...")

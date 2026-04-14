@@ -21,6 +21,10 @@ share/python-wheels/
 *.manifest
 *.spec
 
+#ctc data
+ctc_data/
+ctc_results/
+
 #optuna data
 *.db
 
@@ -89,3 +93,6 @@ results/
 docs/_build/
 
 *.lcov
+
+example_scripts/ctc_data/
+example_scripts/ctc_results/

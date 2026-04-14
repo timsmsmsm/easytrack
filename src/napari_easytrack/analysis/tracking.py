@@ -8,9 +8,13 @@ Provides:
 - Full napari output (tracks layer support)
 - Process-based execution for cancellability
 """
+from __future__ import annotations
 
 import multiprocessing
 import sys
+
+from btrack.btypes import Tracklet
+from numpy import ndarray
 
 # Fix for macOS CoreFoundation fork issue
 if sys.platform == 'darwin':  # Only on macOS
@@ -107,7 +111,7 @@ def run_tracking_core(
     segmentation: np.ndarray,
     params: Dict[str, Any],
     base_config_path: Optional[str] = None
-) -> Tuple[np.ndarray, list, Dict, np.ndarray, Dict, Any]:
+) -> tuple[ndarray, list[Tracklet], dict, float, ndarray, dict, dict]:
     """
     Core tracking function using the optimization approach.
     
@@ -119,7 +123,7 @@ def run_tracking_core(
         base_config_path: Path to config file. If None, uses package default.
         
     Returns:
-        Tuple of (tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph)
+        Tuple of (tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph)
     """
     print(f"[TRACKING] Starting with segmentation shape: {segmentation.shape}")
     
@@ -272,27 +276,22 @@ def run_tracking_core(
         }
         
         tracks = tracker.tracks
+        lbep = tracker.LBEP
     
     print(f"[TRACKING] Complete!")
-    return tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph
+    return tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph
 
 
 # ============= SIMPLE SYNCHRONOUS API (for optimization widget) =============
 
-def run_tracking_with_params(
-    segmentation: np.ndarray,
-    params: Dict[str, Any],
-    voxel_scale: Tuple[float, float, float] = (1.0, 1.0, 1.0),
-    base_config_path: Optional[str] = None,
-    return_napari: bool = False
-) -> Tuple:
+def run_tracking_with_params(segmentation: np.ndarray, params: Dict[str, Any], base_config_path: Optional[str] = None,
+                             return_napari: bool = False) -> Tuple:
     """
     Simple synchronous tracking for optimization widget.
     
     Args:
         segmentation: 3D or 4D array
         params: Parameter dictionary
-        voxel_scale: Voxel scaling (currently unused but kept for compatibility)
         base_config_path: Path to config file. If None, uses package default.
         return_napari: If True, returns napari tracks data as well
         
@@ -308,7 +307,7 @@ def run_tracking_with_params(
     if base_config_path is None:
         base_config_path = get_default_config_path()
     
-    tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph = run_tracking_core(
+    tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph = run_tracking_core(
         segmentation, params, base_config_path
     )
     
@@ -322,7 +321,7 @@ def run_tracking_with_params(
     if return_napari:
         return tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph
     else:
-        return tracked_seg, tracks, track_info
+        return tracked_seg, tracks, track_info, lbep
 
 
 # ============= ASYNC PROCESS-BASED API (for preset widget) =============
@@ -364,7 +363,7 @@ def run_tracking_process(
         progress_queue.put(f"Extracting objects from {segmentation.shape[0]} frames...")
         
         # Run tracking
-        tracked_seg, tracks, track_info, napari_data, napari_properties, napari_graph = \
+        tracked_seg, tracks, track_info, lbep, napari_data, napari_properties, napari_graph = \
             run_tracking_core(segmentation, params, base_config_path)
         
         progress_queue.put("Saving results...")
