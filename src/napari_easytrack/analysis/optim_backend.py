@@ -98,17 +98,20 @@ def _build_label_timepoints(segmentation):
     return label_timepoints
 
 
-def _build_track_mapping_split_at_gaps(segmentation):
+def _fill_gaps_in_segmentation(segmentation):
     """
-    Build mapping from original labels to CTC track segments, splitting at gaps.
+    Fill temporal gaps in a segmentation by inserting placeholder pixels.
     
-    Works with both 3D (T, Y, X) and 4D (T, Z, Y, X) segmentation arrays.
+    For each label with temporal gaps (missing timepoints between first and
+    last appearance), inserts a single pixel at or near the centroid of the
+    label's previous frame.  Works with both 3D (T, Y, X) and 4D (T, Z, Y, X)
+    segmentation arrays.
     
     Args:
         segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
         
     Returns:
-        Array with same shape as input, with gaps filled
+        Array with same shape as input, with gaps filled by placeholder pixels
     """
     filled = segmentation.copy()
     label_timepoints = _build_label_timepoints(segmentation)
@@ -224,6 +227,57 @@ def _build_track_mapping_split_at_gaps(segmentation):
     return filled
 
 
+def _build_track_mapping_split_at_gaps(segmentation):
+    """
+    Build mapping from original labels to CTC track segments, splitting at gaps.
+    
+    Each label is split into continuous sub-segments linked via parent IDs.
+    
+    Args:
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
+        
+    Returns:
+        List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0,
+                         'end': 1, 'parent_id': 0}, ...]
+    """
+    label_timepoints = _build_label_timepoints(segmentation)
+    
+    track_mapping = []
+    new_track_id = 1
+    
+    for original_label, timepoints in sorted(label_timepoints.items()):
+        timepoints_sorted = sorted(timepoints)
+        
+        # Split into continuous segments
+        segments = []
+        seg_start = timepoints_sorted[0]
+        prev_t = timepoints_sorted[0]
+        
+        for t in timepoints_sorted[1:]:
+            if t == prev_t + 1:
+                prev_t = t
+            else:
+                segments.append((seg_start, prev_t))
+                seg_start = t
+                prev_t = t
+        segments.append((seg_start, prev_t))
+        
+        # Create track entries with parent linkage across gaps
+        prev_segment_id = 0
+        for start, end in segments:
+            track_mapping.append({
+                'new_id': new_track_id,
+                'original_label': original_label,
+                'start': start,
+                'end': end,
+                'parent_id': prev_segment_id,
+            })
+            prev_segment_id = new_track_id
+            new_track_id += 1
+    
+    return track_mapping
+
+
 def _build_track_mapping_continuous(segmentation):
     """
     Build mapping from original labels to new track IDs WITHOUT splitting.
@@ -235,7 +289,6 @@ def _build_track_mapping_continuous(segmentation):
     
     Args:
         segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
-            (gaps already filled)
         
     Returns:
         List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0, 
@@ -250,48 +303,25 @@ def _build_track_mapping_continuous(segmentation):
     
     track_mapping = []
     new_track_id = 1
-    total_gaps_bridged = 0
     
     for original_label, timepoints in sorted(label_timepoints.items()):
         timepoints_sorted = sorted(timepoints)
         
-        # Split into continuous segments
-        segments = []
-        seg_start = timepoints_sorted[0]
-        prev_t = timepoints_sorted[0]
+        # One segment spanning from first to last appearance (no splitting at gaps)
+        start = timepoints_sorted[0]
+        end = timepoints_sorted[-1]
         
-        for t in timepoints_sorted[1:]:
-            if t == prev_t + 1:
-                # Continuous
-                prev_t = t
-            else:
-                # Gap found — end current segment, start new one
-                segments.append((seg_start, prev_t))
-                seg_start = t
-                prev_t = t
-        # Don't forget the last segment
-        segments.append((seg_start, prev_t))
-        
-        # Create track entries with parent linkage
-        prev_segment_id = 0  # 0 means no parent in CTC format
-        for start, end in segments:
-            track_mapping.append({
-                'new_id': new_track_id,
-                'original_label': original_label,
-                'start': start,
-                'end': end,
-                'parent_id': prev_segment_id
-            })
-            prev_segment_id = new_track_id
-            new_track_id += 1
-        
-        if len(segments) > 1:
-            total_gaps_bridged += len(segments) - 1
+        track_mapping.append({
+            'new_id': new_track_id,
+            'original_label': original_label,
+            'start': start,
+            'end': end,
+            'parent_id': 0,
+        })
+        new_track_id += 1
     
     n_segments = len(track_mapping)
     print(f"  Created {n_segments} track segments from {n_labels} labels")
-    if total_gaps_bridged > 0:
-        print(f"  {total_gaps_bridged} gap-bridging edges via parent linkage")
     
     return track_mapping
 
@@ -313,7 +343,7 @@ def _write_ctc_files(segmentation, track_mapping, tra_dir: Path):
     # Write tracking file with parent linkage
     with open(tra_dir / 'man_track.txt', 'w') as f:
         for track in track_mapping:
-            f.write(f"{track['new_id']} {track['start']} {track['end']} {track['parent_id']}\n")
+            f.write(f"{track['new_id']} {track['start']} {track['end']} {track.get('parent_id', 0)}\n")
     
     # Group tracks by timepoint for efficient relabelling
     tracks_by_time = {}
@@ -368,9 +398,9 @@ def prepare_ground_truth_ctc(segmentation, output_dir):
     # Clean any files from previous runs
     _clean_directory(tra_dir)
     
-    # Build track segments split at gaps, linked via parent IDs
+    # Build continuous track mapping (one segment per label, spanning first to last appearance)
     print(f"  Building track segments from original segmentation...")
-    track_mapping = _build_track_mapping_split_at_gaps(segmentation)
+    track_mapping = _build_track_mapping_continuous(segmentation)
     
     # Write CTC files using original segmentation (no placeholders)
     _write_ctc_files(segmentation, track_mapping, tra_dir)
