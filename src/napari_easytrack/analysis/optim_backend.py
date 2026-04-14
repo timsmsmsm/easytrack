@@ -282,17 +282,19 @@ def _build_track_mapping_continuous(segmentation):
     """
     Build mapping from original labels to new track IDs WITHOUT splitting.
     
+    Each label produces exactly ONE track entry spanning from its first to its
+    last appearance, even if the label has temporal gaps in between.
+    
     Example: label 1 present at t=0,1,3,4,9 becomes:
-        segment 1: t=0-1, parent=0  (no parent)
-        segment 2: t=3-4, parent=1  (edge expected from t=1 to t=3)
-        segment 3: t=9-9, parent=2  (edge expected from t=4 to t=9)
+        segment 1: t=0-9, parent=0  (single entry covering full span)
     
     Args:
-        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels
+        segmentation: Array with shape (T, Y, X) or (T, Z, Y, X) with integer labels.
+            Labels may have temporal gaps between first and last appearance.
         
     Returns:
         List of dicts: [{'new_id': 1, 'original_label': 5, 'start': 0, 
-                         'end': 1, 'parent_id': 0}, ...]
+                         'end': 9, 'parent_id': 0}, ...]
     """
     n_timepoints = segmentation.shape[0]
     label_timepoints = _build_label_timepoints(segmentation)
