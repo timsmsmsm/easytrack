@@ -42,6 +42,12 @@ Usage
     # Customise optimisation trials:
     python benchmark_ctc.py --n-random 32 --n-tpe 64 --optim-timeout 30
 
+    # Change the number of random parameter sets for Random / Trained from Random:
+    python benchmark_ctc.py --n-random-eval 10
+
+    # Disable the Random / Trained from Random benchmarks:
+    python benchmark_ctc.py --n-random-eval 0
+
 Data citation
 -------------
 If you use the CTC datasets in a publication, please cite:
@@ -895,6 +901,157 @@ def benchmark_sequence(
 # Optimisation benchmark helpers
 # ---------------------------------------------------------------------------
 
+# Parameter space mirroring the objective function in optim_pipeline.py
+PARAM_RANGES: Dict[str, tuple] = {
+    'theta_dist': (0, 99.99),
+    'lambda_time': (0, 99.99),
+    'lambda_dist': (0, 99.99),
+    'lambda_link': (0, 99.99),
+    'lambda_branch': (0, 99.99),
+    'theta_time': (0, 99.99),
+    'dist_thresh': (0, 99.99),
+    'time_thresh': (0, 99.99),
+    'apop_thresh': (0, 99, 'int'),
+    'segmentation_miss_rate': (0, 1.0),
+    'p_sigma': (0, 500),
+    'g_sigma': (0, 500),
+    'r_sigma': (0, 500),
+    'accuracy': (0.1, 10),
+    'max_lost': (1, 10, 'int'),
+    'prob_not_assign': (0.0, 1.0),
+    'max_search_radius': (0, 1000, 'int'),
+    'div_hypothesis': (0, 1, 'int'),
+}
+
+
+def generate_random_param_sets(n: int = 10, seed: int = 42) -> list[dict]:
+    """Generate *n* random parameter sets drawn uniformly from ``PARAM_RANGES``.
+
+    Uses a seeded RNG so results are reproducible across runs.
+    """
+    rng = np.random.default_rng(seed)
+    param_sets: list[dict] = []
+    for _ in range(n):
+        params: dict = {}
+        for param, bounds in PARAM_RANGES.items():
+            low, high = bounds[0], bounds[1]
+            is_int = len(bounds) > 2 and bounds[2] == 'int'
+            if is_int:
+                params[param] = int(rng.integers(low, high + 1))
+            else:
+                params[param] = float(rng.uniform(low, high))
+        param_sets.append(params)
+    return param_sets
+
+
+def evaluate_random_params_mean(
+    random_params_list: list[dict],
+    segmentation: np.ndarray,
+    gt_data,
+    label_prefix: str = "random",
+) -> dict:
+    """Evaluate each param set in *random_params_list* and return the mean metrics."""
+    all_metrics: list[dict] = []
+    for i, params in enumerate(random_params_list):
+        try:
+            metrics = evaluate_with_params(
+                params, segmentation, gt_data, label=f"{label_prefix}_{i}"
+            )
+            all_metrics.append(metrics)
+        except Exception as exc:
+            print(f"    Random params {i} failed: {exc}")
+
+    if not all_metrics:
+        return {"TRA": float("nan"), "DET": float("nan"), "AOGM": float("nan")}
+
+    return {
+        "TRA": float(np.nanmean([m["TRA"] for m in all_metrics])),
+        "DET": float(np.nanmean([m["DET"] for m in all_metrics])),
+        "AOGM": float(np.nanmean([m["AOGM"] for m in all_metrics])),
+    }
+
+
+def run_trained_from_random_benchmark(
+    dataset_name: str,
+    train_seq: str,
+    dataset_dir: Path,
+    train_seg_dir: Path,
+    random_params_list: list[dict],
+    n_tpe: int = 128,
+    timeout: int = 25,
+    timeout_penalty: float = 10000,
+) -> tuple[dict, str]:
+    """Warm-start Optuna TPE optimisation from pre-generated random param sets.
+
+    The *random_params_list* parameter sets are enqueued into a fresh Optuna study
+    so they are evaluated first, then TPE continues from those results.
+
+    Returns ``(best_params, study_name)``.
+    """
+    import optuna
+    from napari_easytrack.analysis.optim_pipeline import optimize_dataset_with_timeout
+
+    today = date.today().isoformat()
+    study_name = f"{today}_trained_from_random_{dataset_name}_{train_seq}"
+
+    print(f"\n    {'='*50}")
+    print(f"    TRAINED FROM RANDOM: {dataset_name} seq {train_seq}")
+    print(f"    {'='*50}")
+
+    dataset, gt_data, segmentation, work_dir = _prepare_optimisation_data(
+        dataset_dir, train_seq, train_seg_dir
+    )
+
+    # Pre-create the study and enqueue the random params as warm-start trials.
+    # optimize_dataset_with_timeout uses load_if_exists=True so it will pick up
+    # the waiting trials and evaluate them before running TPE suggestions.
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    study = optuna.create_study(
+        directions=["minimize"],
+        study_name=study_name,
+        storage=storage,
+        load_if_exists=True,
+        sampler=optuna.samplers.TPESampler(),
+    )
+    for params in random_params_list:
+        study.enqueue_trial(params)
+
+    n_total = len(random_params_list) + n_tpe
+    print(f"\n    Optimising ({len(random_params_list)} warm-start + {n_tpe} TPE trials)...")
+    try:
+        study = optimize_dataset_with_timeout(
+            dataset=dataset,
+            gt_data=gt_data,
+            objectives='1obj',
+            study_name=study_name,
+            n_trials=n_total,
+            timeout=timeout,
+            timeout_penalty=timeout_penalty,
+            use_parallel_backend=True,
+            sampler='tpe',
+        )
+    except Exception as exc:
+        print(f"    Optimisation failed: {exc}")
+        traceback.print_exc()
+
+    best_trial = study.best_trial
+    best_params = best_trial.params
+    best_aogm = best_trial.value
+
+    print(f"\n    Best AOGM: {best_aogm:.2f}")
+    print(f"    {'='*50}")
+
+    try:
+        shutil.rmtree(work_dir, ignore_errors=True)
+    except Exception:
+        pass
+
+    return best_params, study_name
+
+
 def _prepare_optimisation_data(
     dataset_dir: Path,
     sequence: str,
@@ -1051,12 +1208,126 @@ def benchmark_optimisation(
     n_random: int = 64,
     n_tpe: int = 128,
     timeout: int = 25,
+    n_random_eval: int = 10,
 ) -> list[dict]:
     """
     Run optimisation on train_seq, evaluate on both train and test sequences.
+
+    Additionally evaluates ``n_random_eval`` random parameter sets on the test
+    sequence (labelled ``eval_type="Random"`` in the results) and runs a
+    warm-started TPE optimisation seeded with those same random parameter sets
+    (labelled ``eval_type="Trained from Random"``).
     """
     results = []
-    
+
+    # ------------------------------------------------------------------
+    # Load segmentations up front so they can be reused across all steps.
+    # ------------------------------------------------------------------
+    try:
+        print(f"\n    Loading train segmentation ({train_seq})...")
+        train_seg = load_ctc_segmentation(train_seg_dir).astype(np.uint16)
+        train_seg = clean_segmentation(train_seg, verbose=False).astype(np.uint16)
+        train_tra_dir = train_dataset_dir / f"{train_seq}_GT" / "TRA"
+        filtered_train_tra_dir = filter_man_track_to_segmentation(train_tra_dir, train_seg)
+        train_gt = load_gt_tracking_graph(filtered_train_tra_dir)
+
+        print(f"\n    Loading test segmentation ({test_seq})...")
+        test_seg = load_ctc_segmentation(test_seg_dir).astype(np.uint16)
+        test_seg = clean_segmentation(test_seg, verbose=False).astype(np.uint16)
+        test_tra_dir = test_dataset_dir / f"{test_seq}_GT" / "TRA"
+        filtered_test_tra_dir = filter_man_track_to_segmentation(test_tra_dir, test_seg)
+        test_gt = load_gt_tracking_graph(filtered_test_tra_dir)
+    except Exception as exc:
+        print(f"    ERROR loading segmentations: {exc}")
+        traceback.print_exc()
+        return [{"dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
+                 "method": "benchmark_optimisation", "error": str(exc)}]
+
+    # ------------------------------------------------------------------
+    # Step 1 – Random evaluation
+    # ------------------------------------------------------------------
+    if n_random_eval > 0:
+        print(f"\n    Generating {n_random_eval} random parameter sets (seed=42)...")
+        random_params_list = generate_random_param_sets(n=n_random_eval, seed=42)
+
+        print(f"\n    ▸ Random evaluation on test sequence ({test_seq})...")
+        try:
+            random_test_metrics = evaluate_random_params_mean(
+                random_params_list, test_seg, test_gt,
+                label_prefix=f"random_test_{test_seq}",
+            )
+            results.append({
+                "dataset": dataset_name, "sequence": test_seq,
+                "method": f"random_params (train={train_seq})",
+                "eval_type": "Random",
+                "n_random_eval": n_random_eval,
+                "seg_source": "GT + ST merged",
+                "n_frames": test_seg.shape[0], "input_shape": str(test_seg.shape),
+                **random_test_metrics,
+            })
+            print(
+                f"      Mean Random — TRA={random_test_metrics['TRA']:.4f}, "
+                f"DET={random_test_metrics['DET']:.4f}, "
+                f"AOGM={random_test_metrics['AOGM']:.2f}"
+            )
+        except Exception as exc:
+            print(f"    Random evaluation ERROR: {exc}")
+            traceback.print_exc()
+            results.append({
+                "dataset": dataset_name, "sequence": test_seq,
+                "method": "random_params", "eval_type": "Random", "error": str(exc),
+            })
+
+        # ------------------------------------------------------------------
+        # Step 2 – Trained from Random (TPE warm-started from random params)
+        # ------------------------------------------------------------------
+        print(f"\n    ▸ Trained from Random — optimising on ({train_seq}), "
+              f"evaluating on ({test_seq})...")
+        try:
+            trained_params, trained_study_name = run_trained_from_random_benchmark(
+                dataset_name=dataset_name,
+                train_seq=train_seq,
+                dataset_dir=train_dataset_dir,
+                train_seg_dir=train_seg_dir,
+                random_params_list=random_params_list,
+                n_tpe=n_tpe,
+                timeout=timeout,
+                timeout_penalty=10000,
+            )
+
+            # Save trained-from-random params
+            params_dir = results_dir / "optimised_configs"
+            params_dir.mkdir(parents=True, exist_ok=True)
+            tfr_raw_file = params_dir / f"{trained_study_name}_raw_params.json"
+            with open(tfr_raw_file, 'w') as f:
+                json.dump(trained_params, f, indent=2)
+
+            trained_test_metrics = evaluate_with_params(
+                trained_params, test_seg, test_gt,
+                label=f"trained_from_random_test_{test_seq}",
+            )
+            results.append({
+                "dataset": dataset_name, "sequence": test_seq,
+                "method": f"trained_from_random (train={train_seq})",
+                "eval_type": "Trained from Random",
+                "study_name": trained_study_name,
+                "n_trials": f"{n_random_eval}R+{n_tpe}T",
+                "seg_source": "GT + ST merged",
+                "n_frames": test_seg.shape[0], "input_shape": str(test_seg.shape),
+                **trained_test_metrics,
+            })
+        except Exception as exc:
+            print(f"    Trained from Random ERROR: {exc}")
+            traceback.print_exc()
+            results.append({
+                "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
+                "method": "trained_from_random", "eval_type": "Trained from Random",
+                "error": str(exc),
+            })
+
+    # ------------------------------------------------------------------
+    # Step 3 – Full optimisation (random search + TPE), existing behaviour
+    # ------------------------------------------------------------------
     try:
         best_params, study_name = run_optimisation_benchmark(
             dataset_name=dataset_name,
@@ -1068,29 +1339,23 @@ def benchmark_optimisation(
             n_tpe=n_tpe,
             timeout=timeout,
         )
-        
+
         # Save best params as JSON
         params_dir = results_dir / "optimised_configs"
         params_dir.mkdir(parents=True, exist_ok=True)
-        
+
         from napari_easytrack.analysis.optim_pipeline import write_best_params_to_config
         config_file = params_dir / f"{study_name}_best_config.json"
         write_best_params_to_config(best_params, str(config_file))
         print(f"    Saved btrack config to: {config_file}")
-        
+
         raw_file = params_dir / f"{study_name}_raw_params.json"
         with open(raw_file, 'w') as f:
             json.dump(best_params, f, indent=2)
         print(f"    Saved raw params to: {raw_file}")
-        
+
         # Evaluate on training sequence
-        print(f"\n    Evaluating on training data ({train_seq})...")
-        train_seg = load_ctc_segmentation(train_seg_dir).astype(np.uint16)
-        train_seg = clean_segmentation(train_seg, verbose=False).astype(np.uint16)
-        train_tra_dir = train_dataset_dir / f"{train_seq}_GT" / "TRA"
-        filtered_train_tra_dir = filter_man_track_to_segmentation(train_tra_dir, train_seg)
-        train_gt = load_gt_tracking_graph(filtered_train_tra_dir)
-        
+        print(f"\n    Evaluating optimised params on training data ({train_seq})...")
         train_metrics = evaluate_with_params(
             best_params, train_seg, train_gt, label=f"train_{train_seq}"
         )
@@ -1102,15 +1367,9 @@ def benchmark_optimisation(
             "n_frames": train_seg.shape[0], "input_shape": str(train_seg.shape),
             **train_metrics,
         })
-        
+
         # Evaluate on test sequence
-        print(f"\n    Evaluating on test data ({test_seq})...")
-        test_seg = load_ctc_segmentation(test_seg_dir).astype(np.uint16)
-        test_seg = clean_segmentation(test_seg, verbose=False).astype(np.uint16)
-        test_tra_dir = test_dataset_dir / f"{test_seq}_GT" / "TRA"
-        filtered_test_tra_dir = filter_man_track_to_segmentation(test_tra_dir, test_seg)
-        test_gt = load_gt_tracking_graph(filtered_test_tra_dir)
-        
+        print(f"\n    Evaluating optimised params on test data ({test_seq})...")
         test_metrics = evaluate_with_params(
             best_params, test_seg, test_gt, label=f"test_{test_seq}"
         )
@@ -1122,7 +1381,7 @@ def benchmark_optimisation(
             "n_frames": test_seg.shape[0], "input_shape": str(test_seg.shape),
             **test_metrics,
         })
-        
+
     except Exception as exc:
         print(f"    Optimisation ERROR: {exc}")
         traceback.print_exc()
@@ -1130,7 +1389,7 @@ def benchmark_optimisation(
             "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
             "method": "optimised", "error": str(exc),
         })
-    
+
     return results
 
 
@@ -1177,6 +1436,7 @@ def run_optimisation_benchmarks(
     n_random: int = 64,
     n_tpe: int = 128,
     timeout: int = 25,
+    n_random_eval: int = 10,
 ) -> list[dict]:
     """Run optimisation benchmarks with cross-validation for all requested datasets."""
     all_results = []
@@ -1209,6 +1469,7 @@ def run_optimisation_benchmarks(
                     train_seg_dir=train_seg_dir, test_seg_dir=test_seg_dir,
                     results_dir=results_dir, db_path=db_path,
                     n_random=n_random, n_tpe=n_tpe, timeout=timeout,
+                    n_random_eval=n_random_eval,
                 )
                 all_results.extend(pair_results)
             except Exception as exc:
@@ -1396,6 +1657,14 @@ def parse_args() -> argparse.Namespace:
         help="Per-trial timeout in seconds for optimisation. Default: 25.",
     )
     parser.add_argument(
+        "--n-random-eval", type=int, default=10,
+        help=(
+            "Number of random parameter sets to evaluate per dataset for the "
+            "'Random' baseline and warm-start of 'Trained from Random'. "
+            "Set to 0 to disable. Default: 10."
+        ),
+    )
+    parser.add_argument(
         "--db-path", type=str, default="btrack_benchmark.db",
         help="SQLite database path for Optuna studies. Default: btrack_benchmark.db",
     )
@@ -1432,6 +1701,9 @@ def main() -> int:
         if not args.skip_optimisation:
             print(f"  Optimisation: {args.n_random} random + {args.n_tpe} TPE trials, "
                   f"{args.optim_timeout}s timeout")
+            if args.n_random_eval > 0:
+                print(f"  Random evaluation: {args.n_random_eval} random param sets "
+                      f"(Random baseline + Trained from Random warm-start)")
         else:
             print("  Optimisation: skipped (--skip-optimisation)")
     print()
@@ -1488,6 +1760,7 @@ def main() -> int:
             n_random=args.n_random,
             n_tpe=args.n_tpe,
             timeout=args.optim_timeout,
+            n_random_eval=args.n_random_eval,
         )
 
     # Save & summarise

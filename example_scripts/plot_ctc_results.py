@@ -23,10 +23,12 @@ plt.rcParams['font.size'] = 10
 
 # Configuration
 COLORS = {
-    'easytrack': '#1f77b4',  # Blue
-    'btrack': '#ff7f0e',     # Orange
-    'train': '#2ca02c',      # Green
-    'test': '#d62728'        # Red
+    'easytrack': '#1f77b4',          # Blue
+    'btrack': '#ff7f0e',             # Orange
+    'train': '#2ca02c',              # Green
+    'test': '#d62728',               # Red
+    'Random': '#9467bd',             # Purple
+    'Trained from Random': '#8c564b', # Brown
 }
 METRIC_CONFIGS = {
     'TRA': {'label': 'TRA (Tracking)', 'is_higher_better': True},
@@ -91,9 +93,8 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
     x = np.arange(len(datasets))
 
     # Calculate bar width based on number of methods
-    # For 4 methods: width = 0.18, spacing factor = 0.05
     num_methods = len(methods)
-    width = 0.15 if num_methods == 4 else (0.35 if num_methods == 2 else 0.25)
+    width = max(0.08, 0.7 / num_methods)
 
     # Plot bars for each method with proper coloring
     for i, method in enumerate(methods):
