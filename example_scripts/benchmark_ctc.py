@@ -3,35 +3,33 @@ benchmark_ctc.py — Benchmark easytrack on Cell Tracking Challenge datasets
 ==========================================================================
 
 Downloads (optional) and evaluates easytrack on Cell Tracking Challenge
-datasets, comparing easytrack presets against btrack defaults and
-optionally running Optuna-based parameter optimisation.
+datasets, comparing easytrack presets against btrack defaults, running
+Optuna-based parameter optimisation with cross-validation, and testing
+optimisation robustness via repeated independent restarts with distinct
+random seeds.
 
 By default the script merges gold-truth (GT) and silver-truth (ST)
 segmentation masks before tracking, giving easytrack full frame coverage.
 GT masks take priority; ST fills the gaps.  Each cell is relabelled with
 its tracking (TRA) identity so labels are consistent over time.
-Use ``--gt-only`` to skip the merge and use only GT SEG masks (original
-behaviour).
+Use ``--gt-only`` to skip the merge and use only GT SEG masks.
 
 Usage
 -----
-    # Download data automatically and benchmark both datasets:
+    # Download data automatically and benchmark all default datasets:
     python benchmark_ctc.py
 
     # Use only GT segmentation (no ST merge):
     python benchmark_ctc.py --gt-only
 
-    # Use already-downloaded data (skip the download step):
+    # Use already-downloaded data:
     python benchmark_ctc.py --skip-download --data-dir /path/to/ctc_data
 
     # Benchmark a single dataset:
-    python benchmark_ctc.py --datasets Fluo-C2DL-Huh7
+    python benchmark_ctc.py --datasets Fluo-N2DH-GOWT1
 
     # Choose a different preset:
     python benchmark_ctc.py --preset "Epithelial Cells (Default)"
-
-    # Override the output directory for results:
-    python benchmark_ctc.py --results-dir ./my_results
 
     # Run only the optimisation benchmark:
     python benchmark_ctc.py --only-optimisation
@@ -42,11 +40,11 @@ Usage
     # Customise optimisation trials:
     python benchmark_ctc.py --n-random 32 --n-tpe 64 --optim-timeout 30
 
-    # Change the number of random parameter sets for Random / Trained from Random:
-    python benchmark_ctc.py --n-random-eval 10
+    # Run robustness experiment (10 independent restarts):
+    python benchmark_ctc.py --random-restarts --n-restarts 10
 
-    # Disable the Random / Trained from Random benchmarks:
-    python benchmark_ctc.py --n-random-eval 0
+    # Run only the robustness experiment:
+    python benchmark_ctc.py --only-restarts --n-restarts 10
 
 Data citation
 -------------
@@ -114,16 +112,7 @@ pp = pprint.PrettyPrinter(indent=4)
 # ---------------------------------------------------------------------------
 
 def _make_ssl_context() -> ssl.SSLContext:
-    """
-    Return an SSL context that works on macOS even when the system
-    certificate store is not wired up to Python (the common
-    'certificate verify failed' error after a plain Python install).
-
-    Strategy:
-    1. Try the default context (works when certifi or system certs are fine).
-    2. Fall back to certifi's bundle if it is installed.
-    3. Last resort: unverified context (prints a warning).
-    """
+    """Return an SSL context, falling back gracefully on macOS cert issues."""
     try:
         ctx = ssl.create_default_context()
         import urllib.request as _ur
@@ -131,14 +120,11 @@ def _make_ssl_context() -> ssl.SSLContext:
         return ctx
     except Exception:
         pass
-
     try:
         import certifi
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        return ctx
+        return ssl.create_default_context(cafile=certifi.where())
     except ImportError:
         pass
-
     import warnings
     warnings.warn(
         "SSL certificate verification disabled. "
@@ -147,8 +133,7 @@ def _make_ssl_context() -> ssl.SSLContext:
         "for a proper fix.",
         stacklevel=2,
     )
-    ctx = ssl._create_unverified_context()
-    return ctx
+    return ssl._create_unverified_context()
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +175,7 @@ DATASETS: Dict[str, Dict] = {
     },
     "wing_disc": {
         "url": "../example_data/2d_time",
-        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data) and 3D: Individual 3D cell shapes of Drosophila Wing Disc",
+        "description": "2D+time: Drosophila wing disc epithelium wound healing (example data)",
         "is_3d": False,
         "has_st": False,
         "sequences": ["01", "02"],
@@ -198,8 +183,15 @@ DATASETS: Dict[str, Dict] = {
     },
 }
 
-# Default datasets to benchmark (those with silver truth for full coverage)
 DEFAULT_DATASETS = ["wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
+
+CROSS_VALIDATION_PAIRS = {
+    "PhC-C2DH-U373": [("01", "02"), ("02", "01")],
+    "DIC-C2DH-HeLa": [("01", "02"), ("02", "01")],
+    "Fluo-N2DH-GOWT1": [("01", "02"), ("02", "01")],
+    "Fluo-C3DH-A549-SIM": [("01", "02"), ("02", "01")],
+    "wing_disc": [("01", "02"), ("02", "01")],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +199,6 @@ DEFAULT_DATASETS = ["wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GO
 # ---------------------------------------------------------------------------
 
 def _progress_hook(count: int, block_size: int, total_size: int) -> None:
-    """Simple download progress indicator."""
     downloaded = count * block_size
     if total_size > 0:
         pct = min(100.0, 100.0 * downloaded / total_size)
@@ -217,16 +208,8 @@ def _progress_hook(count: int, block_size: int, total_size: int) -> None:
 
 
 def download_ftp(target_dir: Path) -> None:
-    """Download specified files from EBI FTP server."""
-
-    # FTP server details
     HOST = "ftp.ebi.ac.uk"
-    USER = "anonymous"
-
-    # Remote directory path
     REMOTE_DIR = "biostudies/fire/S-BIAD/843/S-BIAD843/Files"
-
-    # Files to download
     files_to_download = [
         "WD1.1_17-03_WT_MP.ome.zarr.zip",
         "WD3.2_21-03_WT_MP.ome.zarr.zip",
@@ -235,27 +218,22 @@ def download_ftp(target_dir: Path) -> None:
         "WD1_15-02_WT_confocalonly_segmented.ome.zarr.zip",
         "WD1.1_17-03_WT_MP_segmented.ome.zarr.zip",
         "WD2.1_21-02_WT_confocalonly_segmented.ome.zarr.zip",
-        "WD3.2_21-03_WT_MP_segmented.ome.zarr.zip"
+        "WD3.2_21-03_WT_MP_segmented.ome.zarr.zip",
     ]
-
     try:
         print(f"Connecting to {HOST}...")
         ftp = ftplib.FTP(HOST)
-        ftp.login(user=USER)
-        print("Login successful")
-        print(f"Changing to directory: {REMOTE_DIR}")
+        ftp.login(user="anonymous")
         ftp.cwd(REMOTE_DIR)
-        ftp.voidcmd('TYPE I')
-        print("Binary mode set")
-
+        ftp.voidcmd("TYPE I")
         for filename in files_to_download:
             print(f"\nDownloading: {filename}")
-            if Path(target_dir / filename).exists():
+            if (target_dir / filename).exists():
                 print(f"  File {filename} already exists, skipping...")
                 continue
             try:
-                with open(target_dir / filename, 'wb') as local_file:
-                    ftp.retrbinary(f'RETR {filename}', local_file.write)
+                with open(target_dir / filename, "wb") as local_file:
+                    ftp.retrbinary(f"RETR {filename}", local_file.write)
                 print(f"  Successfully downloaded: {filename}")
             except ftplib.error_perm as e:
                 print(f"  Error downloading {filename}: {e}")
@@ -265,10 +243,8 @@ def download_ftp(target_dir: Path) -> None:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(target_dir)
             zip_path.unlink()
-
         ftp.quit()
         print("\nAll downloads completed!")
-
     except ftplib.all_errors as e:
         print(f"FTP error occurred: {e}", file=sys.stderr)
         sys.exit(1)
@@ -278,7 +254,6 @@ def download_ftp(target_dir: Path) -> None:
 
 
 def download_dataset(name: str, data_dir: Path) -> Path:
-    """Download and extract a CTC training dataset."""
     info = DATASETS[name]
     url = info["url"]
     target_dir = data_dir / name
@@ -292,7 +267,7 @@ def download_dataset(name: str, data_dir: Path) -> Path:
         if info["downloadable"] == "FTP":
             download_ftp(target_dir)
         else:
-            download_ssl(data_dir, name, target_dir, url)
+            _download_ssl(data_dir, name, target_dir, url)
     else:
         source_path = Path(url)
         if not source_path.exists():
@@ -310,11 +285,10 @@ def download_dataset(name: str, data_dir: Path) -> Path:
                 print(f"  [skip] Target directory {target_dir} already has content.")
         else:
             raise ValueError(f"URL for {name} is not a directory: {url}")
-
     return target_dir
 
 
-def download_ssl(data_dir: Path, name: str, target_dir: Path, url):
+def _download_ssl(data_dir: Path, name: str, target_dir: Path, url: str) -> None:
     zip_path = data_dir / f"{name}.zip"
     print(f"  Downloading {name} from:\n    {url}")
     try:
@@ -337,7 +311,6 @@ def download_ssl(data_dir: Path, name: str, target_dir: Path, url):
         print(f"\n  ERROR downloading {name}: {exc}")
         print("  Please download manually and re-run with --skip-download.")
         raise
-
     print(f"  Extracting to {target_dir} …")
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(data_dir)
@@ -349,15 +322,13 @@ def download_ssl(data_dir: Path, name: str, target_dir: Path, url):
 # ---------------------------------------------------------------------------
 
 def _parse_frame_index(filename: str) -> int:
-    """Extract the zero-based frame index from a filename like man_seg042.tif."""
-    m = re.search(r'(\d+)\.tif', os.path.basename(filename))
+    m = re.search(r"(\d+)\.tif", os.path.basename(filename))
     if m is None:
         raise ValueError(f"Cannot parse frame index from {filename}")
     return int(m.group(1))
 
 
 def _discover_seg_files(directory: str) -> dict[int, str]:
-    """Return {frame_index: filepath} for all man_seg*.tif in a directory."""
     result = {}
     for fp in sorted(glob.glob(os.path.join(directory, "man_seg*.tif"))):
         result[_parse_frame_index(fp)] = fp
@@ -365,7 +336,6 @@ def _discover_seg_files(directory: str) -> dict[int, str]:
 
 
 def _discover_tra_files(directory: str) -> dict[int, str]:
-    """Return {frame_index: filepath} for all man_track*.tif in a directory."""
     result = {}
     for fp in sorted(glob.glob(os.path.join(directory, "man_track*.tif"))):
         result[_parse_frame_index(fp)] = fp
@@ -373,11 +343,9 @@ def _discover_tra_files(directory: str) -> dict[int, str]:
 
 
 def _relabel_seg_with_tra(seg: np.ndarray, tra: np.ndarray) -> np.ndarray:
-    """Relabel a segmentation mask using tracking marker labels."""
     out = np.zeros_like(seg, dtype=np.uint16)
     seg_labels = np.unique(seg)
     seg_labels = seg_labels[seg_labels != 0]
-
     for seg_label in seg_labels:
         seg_mask = seg == seg_label
         tra_in_seg = tra[seg_mask]
@@ -386,58 +354,38 @@ def _relabel_seg_with_tra(seg: np.ndarray, tra: np.ndarray) -> np.ndarray:
             continue
         labels, counts = np.unique(tra_in_seg, return_counts=True)
         out[seg_mask] = labels[np.argmax(counts)]
-
     return out
 
 
 def _stack_folder_to_tif(folder: str) -> str | None:
-    """Stack all mask*.tif frames in *folder* into a single ImageJ TIFF."""
     files = sorted(glob.glob(os.path.join(folder, "mask*.tif")))
     if not files:
         print(f"    [stack] No mask*.tif files in {folder} — skipping")
         return None
-
     frames = [tifffile.imread(f) for f in files]
     stack = np.stack(frames, axis=0).astype(np.uint16)
-
     ndim = stack.ndim
-    if ndim == 3:
-        axes = "TYX"
-    elif ndim == 4:
-        axes = "TZYX"
-    else:
-        axes = None
-
+    axes = {3: "TYX", 4: "TZYX"}.get(ndim)
     out_path = os.path.join(folder, "merged_stack.tif")
     imagej_kwargs = {"imagej": True}
     if axes is not None:
         imagej_kwargs["metadata"] = {"axes": axes}
-
     tifffile.imwrite(out_path, stack, **imagej_kwargs)
     axes_str = axes if axes else f"{ndim}D"
     print(f"    [stack] {out_path}: {stack.shape} {stack.dtype} ({axes_str})")
     return out_path
 
 
-def merge_gt_st_segmentation(
-    dataset_dir: Path,
-    sequence: str,
-) -> Path | None:
+def merge_gt_st_segmentation(dataset_dir: Path, sequence: str) -> Path | None:
     """
     Merge GT and ST segmentation masks for one CTC sequence, relabelling
-    every cell with its TRA tracking identity.
-
-    For frames where both GT and ST segmentation exist, GT masks take
-    priority on a per-pixel basis: GT cells are used first, then ST cells
-    fill in any remaining regions not covered by GT. This ensures full
-    cell coverage even when GT only annotates a subset of cells.
-
-    For frames with only GT or only ST, that source is used directly.
+    every cell with its TRA tracking identity.  GT masks take priority on
+    a per-pixel basis; ST cells fill remaining regions.
     """
     gt_seg_dir = str(dataset_dir / f"{sequence}_GT" / "SEG")
     st_seg_dir = str(dataset_dir / f"{sequence}_ST" / "SEG")
-    tra_dir    = str(dataset_dir / f"{sequence}_GT" / "TRA")
-    out_dir    = str(dataset_dir / f"{sequence}_MERGED_SEG")
+    tra_dir = str(dataset_dir / f"{sequence}_GT" / "TRA")
+    out_dir = str(dataset_dir / f"{sequence}_MERGED_SEG")
 
     if os.path.exists(out_dir):
         return Path(out_dir)
@@ -446,7 +394,7 @@ def merge_gt_st_segmentation(
 
     gt_seg_files = _discover_seg_files(gt_seg_dir) if os.path.isdir(gt_seg_dir) else {}
     st_seg_files = _discover_seg_files(st_seg_dir) if os.path.isdir(st_seg_dir) else {}
-    tra_files    = _discover_tra_files(tra_dir)     if os.path.isdir(tra_dir) else {}
+    tra_files = _discover_tra_files(tra_dir) if os.path.isdir(tra_dir) else {}
 
     if not tra_files:
         print(f"    [WARNING] No TRA markers in {tra_dir} — cannot merge")
@@ -456,8 +404,7 @@ def merge_gt_st_segmentation(
     print(f"    Merge: {len(gt_seg_files)} GT + {len(st_seg_files)} ST frames, "
           f"{len(tra_files)} TRA frames → {len(all_frames)} union frames")
 
-    n_gt_only = n_st_only = n_combined = n_skip = 0
-    n_relabelled = 0
+    n_gt_only = n_st_only = n_combined = n_skip = n_relabelled = 0
 
     for frame_idx in all_frames:
         if frame_idx not in tra_files:
@@ -484,14 +431,12 @@ def merge_gt_st_segmentation(
         elif has_gt:
             gt_seg = tifffile.imread(gt_seg_files[frame_idx])
             if gt_seg.shape != tra.shape:
-                print(f"    [WARNING] Frame {frame_idx:04d}: shape mismatch — skipping")
                 continue
             relabelled = _relabel_seg_with_tra(gt_seg, tra)
             n_gt_only += 1
         else:
             st_seg = tifffile.imread(st_seg_files[frame_idx])
             if st_seg.shape != tra.shape:
-                print(f"    [WARNING] Frame {frame_idx:04d}: shape mismatch — skipping")
                 continue
             relabelled = _relabel_seg_with_tra(st_seg, tra)
             n_st_only += 1
@@ -511,8 +456,7 @@ def merge_gt_st_segmentation(
 
     print(f"    Merge result: {n_combined} combined (GT+ST), "
           f"{n_gt_only} GT-only, {n_st_only} ST-only frames, "
-          f"{n_skip} skipped (no TRA), "
-          f"{n_relabelled} total cells relabelled")
+          f"{n_skip} skipped (no TRA), {n_relabelled} total cells relabelled")
 
     _stack_folder_to_tif(out_dir)
     return Path(out_dir)
@@ -523,7 +467,6 @@ def merge_gt_st_segmentation(
 # ---------------------------------------------------------------------------
 
 def load_ctc_segmentation(seg_dir: Path) -> np.ndarray:
-    """Load CTC segmentation masks as a numpy array."""
     mask_files = sorted(seg_dir.glob("mask*.tif"))
     if not mask_files:
         mask_files = sorted(seg_dir.glob("man_seg*.tif"))
@@ -538,32 +481,27 @@ def load_ctc_segmentation(seg_dir: Path) -> np.ndarray:
     return segmentation
 
 
-def _fill_gaps_in_segmentation(segmentation):
-    """Fill temporal gaps with placeholder pixels (for benchmark GT loading only)."""
+def _fill_gaps_in_segmentation(segmentation: np.ndarray) -> np.ndarray:
     filled = segmentation.copy()
     label_timepoints = _build_label_timepoints(segmentation)
-    
     for label, timepoints in label_timepoints.items():
         if len(timepoints) < 2:
             continue
         first_t, last_t = min(timepoints), max(timepoints)
         gaps = sorted(set(range(first_t, last_t + 1)) - set(timepoints))
-        
         for gap_t in gaps:
             prev_t = max(t for t in timepoints if t < gap_t)
-            mask = (segmentation[prev_t] == label)
+            mask = segmentation[prev_t] == label
             if not np.any(mask):
                 continue
             ys, xs = np.where(mask)
             cy, cx = int(np.mean(ys)), int(np.mean(xs))
             if filled[gap_t, cy, cx] == 0:
                 filled[gap_t, cy, cx] = label
-    
     return filled
 
 
 def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
-    """Load CTC ground-truth as a traccuracy TrackingGraph."""
     from traccuracy.loaders import load_ctc_data
 
     track_paths = list(glob.glob(str(tra_dir / "man_track.txt")))
@@ -574,8 +512,7 @@ def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
             frame_path = tra_dir / f"mask{t:03d}.tif"
             io.imsave(str(frame_path), filled_segmentation[t], check_contrast=False)
         lbep = _extract_lineage_from_tracked_seg(filled_segmentation)
-        res_track_path = tra_dir / "man_track.txt"
-        write_lbep_to_csv(lbep, res_track_path)
+        _write_lbep_to_csv(lbep, tra_dir / "man_track.txt")
 
     gt_graph = load_ctc_data(
         str(tra_dir),
@@ -586,7 +523,7 @@ def load_gt_tracking_graph(tra_dir: Path) -> TrackingGraph:
     return gt_graph
 
 
-def write_lbep_to_csv(lbep: ndarray[tuple[Any, ...], dtype[Any]], res_track_path: Path):
+def _write_lbep_to_csv(lbep: np.ndarray, res_track_path: Path) -> None:
     with open(res_track_path, "w") as f:
         for idx in range(lbep.shape[0]):
             cell_id = int(lbep[idx, 0])
@@ -603,7 +540,6 @@ def write_lbep_to_csv(lbep: ndarray[tuple[Any, ...], dtype[Any]], res_track_path
 # ---------------------------------------------------------------------------
 
 def _build_pred_graph(tracked_seg: np.ndarray, lbep: np.ndarray) -> TrackingGraph:
-    """Build a traccuracy TrackingGraph from easytrack / btrack output."""
     from napari_easytrack.analysis.optim_pipeline import (
         ctc_to_graph,
         add_missing_attributes,
@@ -627,32 +563,23 @@ def _build_pred_graph(tracked_seg: np.ndarray, lbep: np.ndarray) -> TrackingGrap
 
 
 def _extract_lineage_from_tracked_seg(tracked_seg: np.ndarray) -> np.ndarray:
-    """Extract lineage (LBEP) from tracked segmentation. Parent is always 0."""
     lbep_rows = []
     cell_ids = np.unique(tracked_seg)
     cell_ids = cell_ids[cell_ids != 0]
     axes = tuple(range(1, tracked_seg.ndim))
-    
     for cell_id in cell_ids:
         frames = np.where(np.any(tracked_seg == cell_id, axis=axes))[0]
         if len(frames) == 0:
             continue
         lbep_rows.append([int(cell_id), int(frames[0]), int(frames[-1]), 0])
-
     return np.array(lbep_rows, dtype=np.int64)
 
 
-def _save_ctc_results(
-    tracked_seg: np.ndarray,
-    lbep: np.ndarray,
-    res_dir: Path,
-) -> None:
-    """Save tracking results in CTC format."""
+def _save_ctc_results(tracked_seg: np.ndarray, lbep: np.ndarray, res_dir: Path) -> None:
     res_dir.mkdir(exist_ok=True)
     res_track_path = res_dir / "res_track.txt"
-    write_lbep_to_csv(lbep, res_track_path)
+    _write_lbep_to_csv(lbep, res_track_path)
     print(f"      Saved {res_track_path}")
-
     for t in range(tracked_seg.shape[0]):
         frame_path = res_dir / f"mask{t:03d}.tif"
         io.imsave(str(frame_path), tracked_seg[t], check_contrast=False)
@@ -660,12 +587,7 @@ def _save_ctc_results(
     _stack_folder_to_tif(str(res_dir))
 
 
-def _evaluate_tracking(
-    gt_data,
-    tracked_seg: np.ndarray,
-    lbep: np.ndarray,
-) -> Dict:
-    """Build prediction graph and compute CTC metrics."""
+def _evaluate_tracking(gt_data, tracked_seg: np.ndarray, lbep: np.ndarray) -> Dict:
     pred_data = _build_pred_graph(tracked_seg, lbep)
     ctc_results, _ = run_metrics(
         gt_data=gt_data,
@@ -681,25 +603,16 @@ def _evaluate_tracking(
     }
 
 
-def run_easytrack(
-    segmentation: np.ndarray,
-    preset_name: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Run easytrack on segmentation and return (tracked_seg, lbep)."""
+def run_easytrack(segmentation: np.ndarray, preset_name: str) -> tuple[np.ndarray, np.ndarray]:
     presets = get_presets()
     params = presets[preset_name]["config"]
     tracked_seg, tracks, stats, lbep = run_tracking_with_params(
-        segmentation=segmentation,
-        params=params,
-        return_napari=False,
+        segmentation=segmentation, params=params, return_napari=False,
     )
     return tracked_seg, lbep
 
 
-def run_btrack_baseline(
-    segmentation: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Run btrack directly with default cell_config.json on segmentation."""
+def run_btrack_baseline(segmentation: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     ndim = segmentation.ndim
     if ndim == 3:
         T, Y, X = segmentation.shape
@@ -710,11 +623,8 @@ def run_btrack_baseline(
     else:
         raise ValueError(f"Unexpected segmentation ndim={ndim}")
 
-    objects = btrack.utils.segmentation_to_objects(
-        segmentation, properties=("area",)
-    )
-    from btrack import datasets
-    btrack_config = datasets.cell_config()
+    objects = btrack.utils.segmentation_to_objects(segmentation, properties=("area",))
+    btrack_config = btrack.datasets.cell_config()
 
     with btrack.BayesianTracker() as tracker:
         tracker.configure(btrack_config)
@@ -734,7 +644,6 @@ def run_btrack_baseline(
         end_frame = int(track.t[-1])
         parent_id = int(track.parent) if track.parent is not None else 0
         lbep_rows.append([track_id, start_frame, end_frame, parent_id])
-
         for t_idx, t_frame in enumerate(track.t):
             t_frame = int(t_frame)
             if t_frame < 0 or t_frame >= segmentation.shape[0]:
@@ -764,13 +673,13 @@ def run_btrack_baseline(
 
 
 # ---------------------------------------------------------------------------
-# Per-sequence preset benchmark
+# Shared helpers for segmentation loading and GT preparation
 # ---------------------------------------------------------------------------
 
 from gt_filtering import filter_man_track_to_segmentation_v2 as filter_man_track_to_segmentation
 
+
 def _ensure_wing_disc_prepared(dataset_name: str, data_dir: Path) -> None:
-    """Auto-run prepare_wing_disc if GT structure doesn't exist yet."""
     wing_disc_keys = {v["name"]: k for k, v in WING_DISC_DATASETS.items()}
     if dataset_name not in wing_disc_keys:
         return
@@ -780,6 +689,46 @@ def _ensure_wing_disc_prepared(dataset_name: str, data_dir: Path) -> None:
     key = wing_disc_keys[dataset_name]
     print(f"    Wing disc GT not found — running preparation automatically...")
     prepare_wing_disc_dataset(key, data_dir)
+
+
+def _get_seg_dir(dataset_dir: Path, sequence: str, gt_only: bool, dataset_name: str = "") -> Path:
+    """Get the segmentation directory, merging GT+ST if needed."""
+    if gt_only:
+        seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+        if not seg_dir.exists():
+            raise FileNotFoundError(f"GT SEG not found: {seg_dir}")
+        return seg_dir
+
+    info = DATASETS.get(dataset_name, {})
+    has_st = info.get("has_st", True)
+    if has_st:
+        merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
+        if merged_dir is not None:
+            return merged_dir
+
+    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
+    if seg_dir.exists():
+        return seg_dir
+    raise FileNotFoundError(f"No segmentation found for {dataset_dir}/{sequence}")
+
+
+def _load_and_clean_segmentation(seg_dir: Path) -> np.ndarray:
+    """Load segmentation, clean it, return as uint16."""
+    segmentation = load_ctc_segmentation(seg_dir).astype(np.uint16)
+    segmentation = clean_segmentation(segmentation, verbose=False).astype(np.uint16)
+    return segmentation
+
+
+def _load_filtered_gt(dataset_dir: Path, sequence: str, segmentation: np.ndarray) -> TrackingGraph:
+    """Filter GT to match segmentation coverage and load as TrackingGraph."""
+    tra_dir = dataset_dir / f"{sequence}_GT" / "TRA"
+    filtered_tra_dir = filter_man_track_to_segmentation(tra_dir, segmentation)
+    return load_gt_tracking_graph(filtered_tra_dir)
+
+
+# ---------------------------------------------------------------------------
+# Per-sequence preset benchmark
+# ---------------------------------------------------------------------------
 
 def benchmark_sequence(
     dataset_name: str,
@@ -805,55 +754,23 @@ def benchmark_sequence(
     try:
         _ensure_wing_disc_prepared(dataset_name, dataset_dir.parent)
 
-        if gt_only:
-            seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-            seg_source = "GT only"
-            if not seg_dir.exists():
-                print(f"  [skip] GT SEG directory not found: {seg_dir}")
-                return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found"}]
-        else:
-            info = DATASETS.get(dataset_name, {})
-            has_st = info.get("has_st", True)
-            if has_st:
-                print("    Merging GT + ST segmentation …")
-                merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
-                if merged_dir is None:
-                    print("    Falling back to GT SEG only")
-                    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-                    seg_source = "GT only (merge failed)"
-                    if not seg_dir.exists():
-                        return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found and merge failed"}]
-                else:
-                    seg_dir = merged_dir
-                    seg_source = "GT + ST merged"
-            else:
-                print("    No ST segmentation available, using GT SEG …")
-                seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-                seg_source = "GT only"
-                if not seg_dir.exists():
-                    return [{"dataset": dataset_name, "sequence": sequence, "error": "GT SEG not found"}]
+        try:
+            seg_dir = _get_seg_dir(dataset_dir, sequence, gt_only, dataset_name)
+            seg_source = "GT only" if gt_only else "GT + ST merged"
+        except FileNotFoundError as e:
+            return [{"dataset": dataset_name, "sequence": sequence, "error": str(e)}]
 
         print(f"    Loading segmentation ({seg_source}) …")
-        segmentation = load_ctc_segmentation(seg_dir)
-        segmentation = segmentation.astype(np.uint16)
-
-        print("    Cleaning segmentation …")
-        segmentation = clean_segmentation(segmentation, verbose=False)
-        segmentation = segmentation.astype(np.uint16)
+        segmentation = _load_and_clean_segmentation(seg_dir)
 
         print("    Filtering GT to match segmentation coverage …")
-        filtered_tra_dir = filter_man_track_to_segmentation(tra_dir, segmentation)
-
-        print("    Loading GT tracking graph …")
-        gt_data = load_gt_tracking_graph(filtered_tra_dir)
+        gt_data = _load_filtered_gt(dataset_dir, sequence, segmentation)
 
         # easytrack
         print(f"\n    ▸ easytrack (preset: {preset_name!r})")
         try:
             tracked_seg_et, lbep_et = run_easytrack(segmentation, preset_name)
-            print("    Building prediction graph …")
             et_metrics = _evaluate_tracking(gt_data, tracked_seg_et, lbep_et)
-            print("    Saving results …")
             _save_ctc_results(tracked_seg_et, lbep_et, res_dir_et)
             results.append({
                 "dataset": dataset_name, "sequence": sequence, "method": "easytrack",
@@ -871,11 +788,9 @@ def benchmark_sequence(
         if not skip_btrack:
             print(f"\n    ▸ btrack baseline (default cell_config)")
             try:
-                gt_data = load_gt_tracking_graph(filtered_tra_dir)
+                gt_data = _load_filtered_gt(dataset_dir, sequence, segmentation)
                 tracked_seg_bt, lbep_bt = run_btrack_baseline(segmentation)
-                print("    Building prediction graph …")
                 bt_metrics = _evaluate_tracking(gt_data, tracked_seg_bt, lbep_bt)
-                print("    Saving results …")
                 _save_ctc_results(tracked_seg_bt, lbep_bt, res_dir_bt)
                 results.append({
                     "dataset": dataset_name, "sequence": sequence, "method": "btrack",
@@ -901,194 +816,33 @@ def benchmark_sequence(
 # Optimisation benchmark helpers
 # ---------------------------------------------------------------------------
 
-# Parameter space mirroring the objective function in optim_pipeline.py
-PARAM_RANGES: Dict[str, tuple] = {
-    'theta_dist': (0, 99.99),
-    'lambda_time': (0, 99.99),
-    'lambda_dist': (0, 99.99),
-    'lambda_link': (0, 99.99),
-    'lambda_branch': (0, 99.99),
-    'theta_time': (0, 99.99),
-    'dist_thresh': (0, 99.99),
-    'time_thresh': (0, 99.99),
-    'apop_thresh': (0, 99, 'int'),
-    'segmentation_miss_rate': (0, 1.0),
-    'p_sigma': (0, 500),
-    'g_sigma': (0, 500),
-    'r_sigma': (0, 500),
-    'accuracy': (0.1, 10),
-    'max_lost': (1, 10, 'int'),
-    'prob_not_assign': (0.0, 1.0),
-    'max_search_radius': (0, 1000, 'int'),
-    'div_hypothesis': (0, 1, 'int'),
-}
-
-
-def generate_random_param_sets(n: int = 10, seed: int = 42) -> list[dict]:
-    """Generate *n* random parameter sets drawn uniformly from ``PARAM_RANGES``.
-
-    Uses a seeded RNG so results are reproducible across runs.
-    """
-    rng = np.random.default_rng(seed)
-    param_sets: list[dict] = []
-    for _ in range(n):
-        params: dict = {}
-        for param, bounds in PARAM_RANGES.items():
-            low, high = bounds[0], bounds[1]
-            is_int = len(bounds) > 2 and bounds[2] == 'int'
-            if is_int:
-                params[param] = int(rng.integers(low, high + 1))
-            else:
-                params[param] = float(rng.uniform(low, high))
-        param_sets.append(params)
-    return param_sets
-
-
-def evaluate_random_params_mean(
-    random_params_list: list[dict],
-    segmentation: np.ndarray,
-    gt_data,
-    label_prefix: str = "random",
-) -> dict:
-    """Evaluate each param set in *random_params_list* and return the mean metrics."""
-    all_metrics: list[dict] = []
-    for i, params in enumerate(random_params_list):
-        try:
-            metrics = evaluate_with_params(
-                params, segmentation, gt_data, label=f"{label_prefix}_{i}"
-            )
-            all_metrics.append(metrics)
-        except Exception as exc:
-            print(f"    Random params {i} failed: {exc}")
-
-    if not all_metrics:
-        return {"TRA": float("nan"), "DET": float("nan"), "AOGM": float("nan")}
-
-    return {
-        "TRA": float(np.nanmean([m["TRA"] for m in all_metrics])),
-        "DET": float(np.nanmean([m["DET"] for m in all_metrics])),
-        "AOGM": float(np.nanmean([m["AOGM"] for m in all_metrics])),
-    }
-
-
-def run_trained_from_random_benchmark(
-    dataset_name: str,
-    train_seq: str,
-    dataset_dir: Path,
-    train_seg_dir: Path,
-    random_params_list: list[dict],
-    n_tpe: int = 128,
-    timeout: int = 25,
-    timeout_penalty: float = 10000,
-) -> tuple[dict, str]:
-    """Warm-start Optuna TPE optimisation from pre-generated random param sets.
-
-    The *random_params_list* parameter sets are enqueued into a fresh Optuna study
-    so they are evaluated first, then TPE continues from those results.
-
-    Returns ``(best_params, study_name)``.
-    """
-    import optuna
-    from napari_easytrack.analysis.optim_pipeline import optimize_dataset_with_timeout
-
-    today = date.today().isoformat()
-    study_name = f"{today}_trained_from_random_{dataset_name}_{train_seq}"
-
-    print(f"\n    {'='*50}")
-    print(f"    TRAINED FROM RANDOM: {dataset_name} seq {train_seq}")
-    print(f"    {'='*50}")
-
-    dataset, gt_data, segmentation, work_dir = _prepare_optimisation_data(
-        dataset_dir, train_seq, train_seg_dir
-    )
-
-    # Pre-create the study and enqueue the random params as warm-start trials.
-    # optimize_dataset_with_timeout uses load_if_exists=True so it will pick up
-    # the waiting trials and evaluate them before running TPE suggestions.
-    storage = optuna.storages.RDBStorage(
-        url="sqlite:///btrack.db",
-        engine_kwargs={"connect_args": {"timeout": 100}},
-    )
-    study = optuna.create_study(
-        directions=["minimize"],
-        study_name=study_name,
-        storage=storage,
-        load_if_exists=True,
-        sampler=optuna.samplers.TPESampler(),
-    )
-    for params in random_params_list:
-        study.enqueue_trial(params)
-
-    n_total = len(random_params_list) + n_tpe
-    print(f"\n    Optimising ({len(random_params_list)} warm-start + {n_tpe} TPE trials)...")
-    try:
-        study = optimize_dataset_with_timeout(
-            dataset=dataset,
-            gt_data=gt_data,
-            objectives='1obj',
-            study_name=study_name,
-            n_trials=n_total,
-            timeout=timeout,
-            timeout_penalty=timeout_penalty,
-            use_parallel_backend=True,
-            sampler='tpe',
-        )
-    except Exception as exc:
-        print(f"    Optimisation failed: {exc}")
-        traceback.print_exc()
-
-    best_trial = study.best_trial
-    best_params = best_trial.params
-    best_aogm = best_trial.value
-
-    print(f"\n    Best AOGM: {best_aogm:.2f}")
-    print(f"    {'='*50}")
-
-    try:
-        shutil.rmtree(work_dir, ignore_errors=True)
-    except Exception:
-        pass
-
-    return best_params, study_name
-
-
 def _prepare_optimisation_data(
     dataset_dir: Path,
     sequence: str,
     seg_source_dir: Path,
 ) -> tuple:
-    """
-    Prepare dataset and GT data for optimisation from CTC directory structure.
-    Uses the real man_track.txt (with division info) for GT.
-    """
     from napari_easytrack.analysis.optim_backend import (
         CellTrackingChallengeDataset,
         create_dataset_structure,
     )
-    
+
     _ensure_wing_disc_prepared(dataset_dir.name, dataset_dir.parent)
 
-    segmentation = load_ctc_segmentation(seg_source_dir)
-    segmentation = segmentation.astype(np.uint16)
-    segmentation = clean_segmentation(segmentation, verbose=False)
-    segmentation = segmentation.astype(np.uint16)
-    
+    segmentation = _load_and_clean_segmentation(seg_source_dir)
+
     work_dir = dataset_dir / f"{sequence}_optim_temp"
     work_dir.mkdir(parents=True, exist_ok=True)
-    dataset_root = create_dataset_structure(segmentation, work_dir / 'dataset')
-    
+    dataset_root = create_dataset_structure(segmentation, work_dir / "dataset")
+
     dataset = CellTrackingChallengeDataset(
         name=f"{dataset_dir.name}_{sequence}",
         path=dataset_root,
-        experiment='01',
+        experiment="01",
         scale=(1.0, 1.0, 1.0),
     )
-    
 
-    tra_dir = dataset_dir / f"{sequence}_GT" / "TRA"
-    filtered_tra_dir = filter_man_track_to_segmentation(tra_dir, segmentation)
-    gt_data = load_gt_tracking_graph(filtered_tra_dir)
-    
+    gt_data = _load_filtered_gt(dataset_dir, sequence, segmentation)
+
     return dataset, gt_data, segmentation, work_dir
 
 
@@ -1097,98 +851,148 @@ def run_optimisation_benchmark(
     train_seq: str,
     dataset_dir: Path,
     train_seg_dir: Path,
-    db_path: str = "btrack_benchmark.db",
+    study_name: str,
     n_random: int = 64,
     n_tpe: int = 128,
     timeout: int = 25,
     timeout_penalty: float = 10000,
 ) -> tuple[dict, str]:
-    """
-    Run optimisation on a single sequence.
-    Does n_random trials with random sampler, then n_tpe trials with TPE.
-    """
+    """Run optimisation on a single sequence: n_random random + n_tpe TPE trials."""
     from napari_easytrack.analysis.optim_pipeline import optimize_dataset_with_timeout
-    
-    today = date.today().isoformat()  # e.g. "2026-04-10"
-    
-    print(f"\n    {'='*50}")
+
+    print(f"\n    {'=' * 50}")
     print(f"    OPTIMISATION: {dataset_name} seq {train_seq}")
-    print(f"    {'='*50}")
-    
+    print(f"    Study: {study_name}")
+    print(f"    {'=' * 50}")
+
     print(f"    Preparing optimisation data...")
     dataset, gt_data, segmentation, work_dir = _prepare_optimisation_data(
         dataset_dir, train_seq, train_seg_dir
     )
-    
-    study_name = f"{today}_optim_{dataset_name}_{train_seq}"
-    
+
     # Phase 1: Random search
     print(f"\n    Phase 1: {n_random} random trials...")
     try:
         study = optimize_dataset_with_timeout(
-            dataset=dataset,
-            gt_data=gt_data,
-            objectives='1obj',
-            study_name=study_name,
-            n_trials=n_random,
-            timeout=timeout,
-            timeout_penalty=timeout_penalty,
-            use_parallel_backend=True,
-            sampler='random',
+            dataset=dataset, gt_data=gt_data, objectives="1obj",
+            study_name=study_name, n_trials=n_random, timeout=timeout,
+            timeout_penalty=timeout_penalty, use_parallel_backend=True,
+            sampler="random",
         )
-        best_so_far = study.best_trial.value
-        print(f"    Random phase complete. Best AOGM: {best_so_far:.2f}")
+        print(f"    Random phase complete. Best AOGM: {study.best_trial.value:.2f}")
     except Exception as e:
         print(f"    Random phase failed: {e}")
         traceback.print_exc()
-    
+
     # Phase 2: TPE
     print(f"\n    Phase 2: {n_tpe} TPE trials...")
     try:
         study = optimize_dataset_with_timeout(
-            dataset=dataset,
-            gt_data=gt_data,
-            objectives='1obj',
-            study_name=study_name,
-            n_trials=n_tpe,
-            timeout=timeout,
-            timeout_penalty=timeout_penalty,
-            use_parallel_backend=True,
-            sampler='tpe',
+            dataset=dataset, gt_data=gt_data, objectives="1obj",
+            study_name=study_name, n_trials=n_tpe, timeout=timeout,
+            timeout_penalty=timeout_penalty, use_parallel_backend=True,
+            sampler="tpe",
         )
     except Exception as e:
         print(f"    TPE phase failed: {e}")
         traceback.print_exc()
-    
+
     best_trial = study.best_trial
     best_params = best_trial.params
     best_aogm = best_trial.value
-    
+
     print(f"\n    Best trial: #{best_trial.number}")
     print(f"    Best AOGM: {best_aogm:.2f}")
-    print(f"    {'='*50}")
-    
+
     # Clean up temp files
     try:
         shutil.rmtree(work_dir, ignore_errors=True)
     except Exception:
         pass
-    
+
     return best_params, study_name
 
 
-def evaluate_with_params(
-    params: dict,
-    segmentation: np.ndarray,
-    gt_data,
-    label: str,
-) -> dict:
+# Trials with AOGM at or above this threshold are treated as timed-out or
+# failed — their objective values are artificial penalties, not real metrics.
+PENALTY_THRESHOLD = 9999.0
+
+
+def _is_valid_trial(trial, *, require_params: bool = False) -> bool:
+    """Check whether an Optuna trial completed with a genuine (non-penalty) result."""
+    import optuna
+    if trial.state != optuna.trial.TrialState.COMPLETE:
+        return False
+    if trial.value is None or trial.value >= PENALTY_THRESHOLD:
+        return False
+    if require_params and not trial.params:
+        return False
+    return True
+
+
+def _extract_convergence_trace(study_name: str) -> list[dict]:
+    """Extract per-trial convergence data from an Optuna study.
+
+    Trials whose objective value is a timeout/error penalty (>= PENALTY_THRESHOLD)
+    are flagged as ``timed_out`` and excluded from the running best.
+    """
+    import optuna
+
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except Exception:
+        return []
+
+    trace = []
+    best_so_far = float("inf")
+    for trial in study.trials:
+        valid = _is_valid_trial(trial)
+        if valid:
+            best_so_far = min(best_so_far, trial.value)
+        trace.append({
+            "trial_number": trial.number,
+            "value": trial.value if trial.value is not None else None,
+            "best_so_far": best_so_far if best_so_far < float("inf") else None,
+            "state": trial.state.name,
+            "timed_out": not valid,
+        })
+    return trace
+
+
+def _extract_first_trial_params(study_name: str) -> dict | None:
+    """Extract the parameters of the first trial that completed with a
+    genuine (non-penalty) result.
+
+    This gives us the 'random baseline' — the score achievable with a
+    single random parameter draw before any optimisation.  Trials that
+    timed out or hit the error penalty are skipped.
+    """
+    import optuna
+
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except Exception:
+        return None
+
+    for trial in sorted(study.trials, key=lambda t: t.number):
+        if _is_valid_trial(trial, require_params=True):
+            return trial.params
+    return None
+
+
+def evaluate_with_params(params: dict, segmentation: np.ndarray, gt_data, label: str) -> dict:
     """Run tracking with given params and evaluate against GT."""
     print(f"      Evaluating on {label}...")
     tracked_seg, tracks, stats, lbep = run_tracking_with_params(
-        segmentation=segmentation,
-        params=params,
-        return_napari=False,
+        segmentation=segmentation, params=params, return_napari=False,
     )
     metrics = _evaluate_tracking(gt_data, tracked_seg, lbep)
     print(f"      {label}: TRA={metrics['TRA']:.4f}, DET={metrics['DET']:.4f}, AOGM={metrics['AOGM']:.2f}")
@@ -1204,143 +1008,23 @@ def benchmark_optimisation(
     train_seg_dir: Path,
     test_seg_dir: Path,
     results_dir: Path,
-    db_path: str = "btrack_benchmark.db",
+    study_name: str,
     n_random: int = 64,
     n_tpe: int = 128,
     timeout: int = 25,
-    n_random_eval: int = 10,
 ) -> list[dict]:
-    """
-    Run optimisation on train_seq, evaluate on both train and test sequences.
-
-    Additionally evaluates ``n_random_eval`` random parameter sets on the test
-    sequence (labelled ``eval_type="Random"`` in the results) and runs a
-    warm-started TPE optimisation seeded with those same random parameter sets
-    (labelled ``eval_type="Trained from Random"``).
-    """
+    """Run optimisation on train_seq, evaluate on both train and test sequences."""
     results = []
 
-    # ------------------------------------------------------------------
-    # Load segmentations up front so they can be reused across all steps.
-    # ------------------------------------------------------------------
-    try:
-        print(f"\n    Loading train segmentation ({train_seq})...")
-        train_seg = load_ctc_segmentation(train_seg_dir).astype(np.uint16)
-        train_seg = clean_segmentation(train_seg, verbose=False).astype(np.uint16)
-        train_tra_dir = train_dataset_dir / f"{train_seq}_GT" / "TRA"
-        filtered_train_tra_dir = filter_man_track_to_segmentation(train_tra_dir, train_seg)
-        train_gt = load_gt_tracking_graph(filtered_train_tra_dir)
-
-        print(f"\n    Loading test segmentation ({test_seq})...")
-        test_seg = load_ctc_segmentation(test_seg_dir).astype(np.uint16)
-        test_seg = clean_segmentation(test_seg, verbose=False).astype(np.uint16)
-        test_tra_dir = test_dataset_dir / f"{test_seq}_GT" / "TRA"
-        filtered_test_tra_dir = filter_man_track_to_segmentation(test_tra_dir, test_seg)
-        test_gt = load_gt_tracking_graph(filtered_test_tra_dir)
-    except Exception as exc:
-        print(f"    ERROR loading segmentations: {exc}")
-        traceback.print_exc()
-        return [{"dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
-                 "method": "benchmark_optimisation", "error": str(exc)}]
-
-    # ------------------------------------------------------------------
-    # Step 1 – Random evaluation
-    # ------------------------------------------------------------------
-    if n_random_eval > 0:
-        print(f"\n    Generating {n_random_eval} random parameter sets (seed=42)...")
-        random_params_list = generate_random_param_sets(n=n_random_eval, seed=42)
-
-        print(f"\n    ▸ Random evaluation on test sequence ({test_seq})...")
-        try:
-            random_test_metrics = evaluate_random_params_mean(
-                random_params_list, test_seg, test_gt,
-                label_prefix=f"random_test_{test_seq}",
-            )
-            results.append({
-                "dataset": dataset_name, "sequence": test_seq,
-                "method": f"random_params (train={train_seq})",
-                "eval_type": "Random",
-                "n_random_eval": n_random_eval,
-                "seg_source": "GT + ST merged",
-                "n_frames": test_seg.shape[0], "input_shape": str(test_seg.shape),
-                **random_test_metrics,
-            })
-            print(
-                f"      Mean Random — TRA={random_test_metrics['TRA']:.4f}, "
-                f"DET={random_test_metrics['DET']:.4f}, "
-                f"AOGM={random_test_metrics['AOGM']:.2f}"
-            )
-        except Exception as exc:
-            print(f"    Random evaluation ERROR: {exc}")
-            traceback.print_exc()
-            results.append({
-                "dataset": dataset_name, "sequence": test_seq,
-                "method": "random_params", "eval_type": "Random", "error": str(exc),
-            })
-
-        # ------------------------------------------------------------------
-        # Step 2 – Trained from Random (TPE warm-started from random params)
-        # ------------------------------------------------------------------
-        print(f"\n    ▸ Trained from Random — optimising on ({train_seq}), "
-              f"evaluating on ({test_seq})...")
-        try:
-            trained_params, trained_study_name = run_trained_from_random_benchmark(
-                dataset_name=dataset_name,
-                train_seq=train_seq,
-                dataset_dir=train_dataset_dir,
-                train_seg_dir=train_seg_dir,
-                random_params_list=random_params_list,
-                n_tpe=n_tpe,
-                timeout=timeout,
-                timeout_penalty=10000,
-            )
-
-            # Save trained-from-random params
-            params_dir = results_dir / "optimised_configs"
-            params_dir.mkdir(parents=True, exist_ok=True)
-            tfr_raw_file = params_dir / f"{trained_study_name}_raw_params.json"
-            with open(tfr_raw_file, 'w') as f:
-                json.dump(trained_params, f, indent=2)
-
-            trained_test_metrics = evaluate_with_params(
-                trained_params, test_seg, test_gt,
-                label=f"trained_from_random_test_{test_seq}",
-            )
-            results.append({
-                "dataset": dataset_name, "sequence": test_seq,
-                "method": f"trained_from_random (train={train_seq})",
-                "eval_type": "Trained from Random",
-                "study_name": trained_study_name,
-                "n_trials": f"{n_random_eval}R+{n_tpe}T",
-                "seg_source": "GT + ST merged",
-                "n_frames": test_seg.shape[0], "input_shape": str(test_seg.shape),
-                **trained_test_metrics,
-            })
-        except Exception as exc:
-            print(f"    Trained from Random ERROR: {exc}")
-            traceback.print_exc()
-            results.append({
-                "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
-                "method": "trained_from_random", "eval_type": "Trained from Random",
-                "error": str(exc),
-            })
-
-    # ------------------------------------------------------------------
-    # Step 3 – Full optimisation (random search + TPE), existing behaviour
-    # ------------------------------------------------------------------
     try:
         best_params, study_name = run_optimisation_benchmark(
-            dataset_name=dataset_name,
-            train_seq=train_seq,
-            dataset_dir=train_dataset_dir,
-            train_seg_dir=train_seg_dir,
-            db_path=db_path,
-            n_random=n_random,
-            n_tpe=n_tpe,
-            timeout=timeout,
+            dataset_name=dataset_name, train_seq=train_seq,
+            dataset_dir=train_dataset_dir, train_seg_dir=train_seg_dir,
+            study_name=study_name,
+            n_random=n_random, n_tpe=n_tpe, timeout=timeout,
         )
 
-        # Save best params as JSON
+        # Save best params
         params_dir = results_dir / "optimised_configs"
         params_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1350,12 +1034,13 @@ def benchmark_optimisation(
         print(f"    Saved btrack config to: {config_file}")
 
         raw_file = params_dir / f"{study_name}_raw_params.json"
-        with open(raw_file, 'w') as f:
+        with open(raw_file, "w") as f:
             json.dump(best_params, f, indent=2)
-        print(f"    Saved raw params to: {raw_file}")
 
         # Evaluate on training sequence
-        print(f"\n    Evaluating optimised params on training data ({train_seq})...")
+        print(f"\n    Evaluating on training data ({train_seq})...")
+        train_seg = _load_and_clean_segmentation(train_seg_dir)
+        train_gt = _load_filtered_gt(train_dataset_dir, train_seq, train_seg)
         train_metrics = evaluate_with_params(
             best_params, train_seg, train_gt, label=f"train_{train_seq}"
         )
@@ -1369,7 +1054,9 @@ def benchmark_optimisation(
         })
 
         # Evaluate on test sequence
-        print(f"\n    Evaluating optimised params on test data ({test_seq})...")
+        print(f"\n    Evaluating on test data ({test_seq})...")
+        test_seg = _load_and_clean_segmentation(test_seg_dir)
+        test_gt = _load_filtered_gt(test_dataset_dir, test_seq, test_seg)
         test_metrics = evaluate_with_params(
             best_params, test_seg, test_gt, label=f"test_{test_seq}"
         )
@@ -1393,83 +1080,46 @@ def benchmark_optimisation(
     return results
 
 
-# ---------------------------------------------------------------------------
-# Cross-validation pairing and orchestration
-# ---------------------------------------------------------------------------
-
-CROSS_VALIDATION_PAIRS = {
-    "PhC-C2DH-U373": [("01", "02"), ("02", "01")],
-    "DIC-C2DH-HeLa": [("01", "02"), ("02", "01")],
-    "Fluo-N2DH-GOWT1": [("01", "02"), ("02", "01")],
-    "Fluo-C2DL-Huh7": [("01", "02"), ("02", "01")],
-    "Fluo-C3DH-A549-SIM": [("01", "02"), ("02", "01")],
-    "wing_disc": [("01", "02"), ("02", "01")],
-}
-
-def _get_seg_dir(dataset_dir: Path, sequence: str, gt_only: bool, dataset_name: str = "") -> Path:
-    """Get the segmentation directory, merging GT+ST if needed."""
-    if gt_only:
-        seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-        if not seg_dir.exists():
-            raise FileNotFoundError(f"GT SEG not found: {seg_dir}")
-        return seg_dir
-
-    info = DATASETS.get(dataset_name, {})
-    has_st = info.get("has_st", True)
-    if has_st:
-        merged_dir = merge_gt_st_segmentation(dataset_dir, sequence)
-        if merged_dir is not None:
-            return merged_dir
-
-    seg_dir = dataset_dir / f"{sequence}_GT" / "SEG"
-    if seg_dir.exists():
-        return seg_dir
-    raise FileNotFoundError(f"No segmentation found for {dataset_dir}/{sequence}")
-
-
 def run_optimisation_benchmarks(
     datasets_to_run: list[str],
     data_dir: Path,
     results_dir: Path,
     gt_only: bool = False,
-    db_path: str = "btrack_benchmark.db",
     n_random: int = 64,
     n_tpe: int = 128,
     timeout: int = 25,
-    n_random_eval: int = 10,
 ) -> list[dict]:
     """Run optimisation benchmarks with cross-validation for all requested datasets."""
+    today = date.today().isoformat()
     all_results = []
-    standard_datasets = [d for d in datasets_to_run]
-    
-    # Standard datasets: cross-validate within dataset
-    for dataset_name in standard_datasets:
+
+    for dataset_name in datasets_to_run:
         if dataset_name not in CROSS_VALIDATION_PAIRS:
             print(f"  [skip optimisation] No cross-validation pairs for {dataset_name}")
             continue
-        
+
         dataset_dir = data_dir / dataset_name
         if not dataset_dir.exists():
             print(f"  [skip] {dataset_dir} does not exist")
             continue
-        
+
         for train_seq, test_seq in CROSS_VALIDATION_PAIRS[dataset_name]:
-            print(f"\n{'─'*70}")
+            print(f"\n{'─' * 70}")
             print(f"OPTIMISATION: {dataset_name} — train on {train_seq}, test on {test_seq}")
-            print(f"{'─'*70}")
-            
+            print(f"{'─' * 70}")
+
             try:
                 train_seg_dir = _get_seg_dir(dataset_dir, train_seq, gt_only, dataset_name)
-                test_seg_dir = _get_seg_dir(dataset_dir, test_seq, gt_only, dataset_name)  
-                
+                test_seg_dir = _get_seg_dir(dataset_dir, test_seq, gt_only, dataset_name)
+                study_name = f"{today}_optim_{dataset_name}_{train_seq}"
+
                 pair_results = benchmark_optimisation(
                     dataset_name=dataset_name,
                     train_seq=train_seq, test_seq=test_seq,
                     train_dataset_dir=dataset_dir, test_dataset_dir=dataset_dir,
                     train_seg_dir=train_seg_dir, test_seg_dir=test_seg_dir,
-                    results_dir=results_dir, db_path=db_path,
+                    results_dir=results_dir, study_name=study_name,
                     n_random=n_random, n_tpe=n_tpe, timeout=timeout,
-                    n_random_eval=n_random_eval,
                 )
                 all_results.extend(pair_results)
             except Exception as exc:
@@ -1479,7 +1129,180 @@ def run_optimisation_benchmarks(
                     "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
                     "method": "optimised", "error": str(exc),
                 })
-    
+
+    return all_results
+
+
+# ---------------------------------------------------------------------------
+# Random-restart robustness experiment
+# ---------------------------------------------------------------------------
+
+def run_restart_experiment(
+    datasets_to_run: list[str],
+    data_dir: Path,
+    results_dir: Path,
+    gt_only: bool = False,
+    n_restarts: int = 10,
+    n_random: int = 64,
+    n_tpe: int = 128,
+    timeout: int = 25,
+) -> list[dict]:
+    """
+    Run independent optimisation restarts to assess convergence robustness.
+
+    For each dataset and cross-validation pair, runs n_restarts fully
+    independent optimisation runs (each with a unique Optuna study name,
+    so no shared state or warm-starting).  Records the best parameters
+    and metrics from each restart, plus convergence traces for plotting.
+    """
+    today = date.today().isoformat()
+    all_results = []
+    all_convergence: dict[str, list] = {}
+
+    for dataset_name in datasets_to_run:
+        if dataset_name not in CROSS_VALIDATION_PAIRS:
+            print(f"  [skip restarts] No cross-validation pairs for {dataset_name}")
+            continue
+
+        dataset_dir = data_dir / dataset_name
+        if not dataset_dir.exists():
+            print(f"  [skip] {dataset_dir} does not exist")
+            continue
+
+        for train_seq, test_seq in CROSS_VALIDATION_PAIRS[dataset_name]:
+            pair_key = f"{dataset_name}_train{train_seq}_test{test_seq}"
+            print(f"\n{'═' * 70}")
+            print(f"RESTART EXPERIMENT: {dataset_name}")
+            print(f"  Train: {train_seq}, Test: {test_seq}, Restarts: {n_restarts}")
+            print(f"{'═' * 70}")
+
+            try:
+                train_seg_dir = _get_seg_dir(dataset_dir, train_seq, gt_only, dataset_name)
+                test_seg_dir = _get_seg_dir(dataset_dir, test_seq, gt_only, dataset_name)
+            except FileNotFoundError as exc:
+                print(f"  ERROR: {exc}")
+                all_results.append({
+                    "dataset": dataset_name, "sequence": f"{train_seq}->{test_seq}",
+                    "method": "restart", "error": str(exc),
+                })
+                continue
+
+            # Pre-load test data once (shared across all restarts)
+            print("    Loading test data...")
+            test_seg = _load_and_clean_segmentation(test_seg_dir)
+            test_gt = _load_filtered_gt(dataset_dir, test_seq, test_seg)
+
+            # Also pre-load train evaluation data
+            print("    Loading train evaluation data...")
+            train_seg = _load_and_clean_segmentation(train_seg_dir)
+            train_gt = _load_filtered_gt(dataset_dir, train_seq, train_seg)
+
+            pair_convergence = []
+
+            for restart_idx in range(n_restarts):
+                print(f"\n    ┌─ Restart {restart_idx + 1}/{n_restarts} ─┐")
+
+                # Unique study name per restart — no shared Optuna state
+                study_name = f"{today}_restart{restart_idx:02d}_{dataset_name}_{train_seq}"
+
+                try:
+                    best_params, _ = run_optimisation_benchmark(
+                        dataset_name=dataset_name,
+                        train_seq=train_seq,
+                        dataset_dir=dataset_dir,
+                        train_seg_dir=train_seg_dir,
+                        study_name=study_name,
+                        n_random=n_random,
+                        n_tpe=n_tpe,
+                        timeout=timeout,
+                    )
+
+                    # Save best params
+                    params_dir = results_dir / "restart_configs"
+                    params_dir.mkdir(parents=True, exist_ok=True)
+                    raw_file = params_dir / f"{study_name}_raw_params.json"
+                    with open(raw_file, "w") as f:
+                        json.dump(best_params, f, indent=2)
+
+                    # --- Evaluate first trial's random params (baseline) ---
+                    first_trial_params = _extract_first_trial_params(study_name)
+                    random_train_metrics = {"TRA": None, "DET": None, "AOGM": None}
+                    if first_trial_params is not None:
+                        print(f"    Evaluating first (random) trial params...")
+                        random_train_metrics = evaluate_with_params(
+                            first_trial_params, train_seg, train_gt,
+                            label=f"restart{restart_idx}_random_train_{train_seq}",
+                        )
+                        # Save random params too
+                        random_file = params_dir / f"{study_name}_first_trial_params.json"
+                        with open(random_file, "w") as f:
+                            json.dump(first_trial_params, f, indent=2)
+                    else:
+                        print(f"    WARNING: could not extract first trial params")
+
+                    # --- Evaluate best (optimised) params ---
+                    train_metrics = evaluate_with_params(
+                        best_params, train_seg, train_gt,
+                        label=f"restart{restart_idx}_train_{train_seq}",
+                    )
+
+                    test_metrics = evaluate_with_params(
+                        best_params, test_seg, test_gt,
+                        label=f"restart{restart_idx}_test_{test_seq}",
+                    )
+
+                    # Extract convergence trace
+                    trace = _extract_convergence_trace(study_name)
+                    pair_convergence.append({
+                        "restart_idx": restart_idx,
+                        "study_name": study_name,
+                        "trace": trace,
+                    })
+
+                    all_results.append({
+                        "dataset": dataset_name,
+                        "train_seq": train_seq,
+                        "test_seq": test_seq,
+                        "restart_idx": restart_idx,
+                        "study_name": study_name,
+                        "n_trials": f"{n_random}R+{n_tpe}T",
+                        # Random baseline (first trial)
+                        "random_train_TRA": random_train_metrics["TRA"],
+                        "random_train_DET": random_train_metrics["DET"],
+                        "random_train_AOGM": random_train_metrics["AOGM"],
+                        # Optimised (best trial)
+                        "train_TRA": train_metrics["TRA"],
+                        "train_DET": train_metrics["DET"],
+                        "train_AOGM": train_metrics["AOGM"],
+                        "test_TRA": test_metrics["TRA"],
+                        "test_DET": test_metrics["DET"],
+                        "test_AOGM": test_metrics["AOGM"],
+                    })
+
+                    print(f"    └─ Restart {restart_idx + 1}: "
+                          f"random TRA={random_train_metrics['TRA']}, "
+                          f"optimised train TRA={train_metrics['TRA']:.4f}, "
+                          f"test TRA={test_metrics['TRA']:.4f}")
+
+                except Exception as exc:
+                    print(f"    └─ Restart {restart_idx + 1} FAILED: {exc}")
+                    traceback.print_exc()
+                    all_results.append({
+                        "dataset": dataset_name,
+                        "train_seq": train_seq,
+                        "test_seq": test_seq,
+                        "restart_idx": restart_idx,
+                        "error": str(exc),
+                    })
+
+            all_convergence[pair_key] = pair_convergence
+
+    # Save convergence traces
+    conv_path = results_dir / "convergence_traces.json"
+    with open(conv_path, "w") as f:
+        json.dump(all_convergence, f, indent=2, default=str)
+    print(f"\n  Convergence traces saved to: {conv_path}")
+
     return all_results
 
 
@@ -1487,12 +1310,11 @@ def run_optimisation_benchmarks(
 # Results I/O
 # ---------------------------------------------------------------------------
 
-def save_results(results: List[Dict], output_dir: Path) -> None:
-    """Save preset benchmark results as CSV and JSON."""
+def save_results(results: List[Dict], output_dir: Path, prefix: str = "ctc_benchmark") -> None:
+    """Save benchmark results as CSV and JSON."""
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    json_path = output_dir / "ctc_benchmark_results.json"
-    csv_path = output_dir / "ctc_benchmark_results.csv"
+    json_path = output_dir / f"{prefix}_results.json"
+    csv_path = output_dir / f"{prefix}_results.csv"
 
     with open(json_path, "w") as f:
         json.dump(results, f, indent=2, default=str)
@@ -1510,33 +1332,10 @@ def save_results(results: List[Dict], output_dir: Path) -> None:
         print(f"  Results (CSV):  {csv_path}")
 
 
-def save_optimisation_results(results: list[dict], output_dir: Path) -> None:
-    """Save optimisation benchmark results separately."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    json_path = output_dir / "optimisation_results.json"
-    csv_path = output_dir / "optimisation_results.csv"
-
-    with open(json_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\n  Optimisation results (JSON): {json_path}")
-
-    if results:
-        fieldnames = sorted(
-            {k for r in results for k in r.keys()},
-            key=lambda k: (k not in ("dataset", "sequence", "method", "eval_type"), k),
-        )
-        with open(csv_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(results)
-        print(f"  Optimisation results (CSV):  {csv_path}")
-
-
-def print_summary(results: List[Dict]) -> None:
-    """Print a human-readable summary table for preset benchmarks."""
+def print_summary(results: List[Dict], title: str = "PRESET BENCHMARK SUMMARY") -> None:
+    """Print a human-readable summary table."""
     print("\n" + "=" * 80)
-    print("PRESET BENCHMARK SUMMARY")
+    print(title)
     print("=" * 80)
     fmt = "{:<22} {:<5} {:<12} {:>7} {:>7} {:>10}"
     print(fmt.format("Dataset", "Seq", "Method", "TRA", "DET", "AOGM"))
@@ -1544,7 +1343,7 @@ def print_summary(results: List[Dict]) -> None:
     for r in results:
         if "error" in r:
             method = r.get("method", "?")
-            print(f"  {r['dataset']:<20} {r['sequence']:<5} {method:<12} "
+            print(f"  {r['dataset']:<20} {r.get('sequence', '?'):<5} {method:<12} "
                   f"ERROR: {r['error']}")
         else:
             tra = r.get("TRA", float("nan"))
@@ -1552,7 +1351,7 @@ def print_summary(results: List[Dict]) -> None:
             aogm = r.get("AOGM", float("nan"))
             method = r.get("method", "?")
             print(fmt.format(
-                r["dataset"], r["sequence"], method,
+                r["dataset"], r.get("sequence", "?"), method,
                 f"{tra:.4f}" if isinstance(tra, float) else str(tra),
                 f"{det:.4f}" if isinstance(det, float) else str(det),
                 f"{aogm:.2f}" if isinstance(aogm, float) else str(aogm),
@@ -1567,7 +1366,6 @@ def print_summary(results: List[Dict]) -> None:
 
 
 def print_optimisation_summary(results: list[dict]) -> None:
-    """Print a summary table for optimisation results."""
     print("\n" + "=" * 95)
     print("OPTIMISATION BENCHMARK SUMMARY")
     print("=" * 95)
@@ -1577,7 +1375,7 @@ def print_optimisation_summary(results: list[dict]) -> None:
     for r in results:
         if "error" in r:
             method = r.get("method", "?")
-            print(f"  {r['dataset']:<20} {r.get('sequence','?'):<15} {method:<28} "
+            print(f"  {r['dataset']:<20} {r.get('sequence', '?'):<15} {method:<28} "
                   f"ERROR: {r['error']}")
         else:
             tra = r.get("TRA", float("nan"))
@@ -1594,6 +1392,67 @@ def print_optimisation_summary(results: list[dict]) -> None:
     print("=" * 95)
 
 
+def print_restart_summary(results: list[dict]) -> None:
+    """Print summary statistics for the restart robustness experiment."""
+    print("\n" + "=" * 120)
+    print("RANDOM-RESTART ROBUSTNESS SUMMARY")
+    print("=" * 120)
+
+    # Group by (dataset, train_seq, test_seq)
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for r in results:
+        if "error" in r:
+            continue
+        key = (r["dataset"], r["train_seq"], r["test_seq"])
+        groups[key].append(r)
+
+    # Aggregated table: random baseline vs optimised
+    print("\n  Aggregated (mean ± std across restarts):")
+    fmt_agg = "  {:<22} {:<12} {:>5}  {:>18}  {:>18}  {:>18}"
+    print(fmt_agg.format(
+        "Dataset", "Train→Test", "N",
+        "Random TRA (train)", "Optimised TRA (train)", "Optimised TRA (test)",
+    ))
+    print("  " + "-" * 116)
+
+    for (dataset, train_seq, test_seq), rows in sorted(groups.items()):
+        random_tras = [r["random_train_TRA"] for r in rows if r["random_train_TRA"] is not None]
+        train_tras = [r["train_TRA"] for r in rows]
+        test_tras = [r["test_TRA"] for r in rows]
+        n = len(rows)
+
+        random_str = (f"{np.mean(random_tras):.4f} ± {np.std(random_tras):.4f}"
+                      if random_tras else "N/A")
+        print(fmt_agg.format(
+            dataset, f"{train_seq}→{test_seq}", n,
+            random_str,
+            f"{np.mean(train_tras):.4f} ± {np.std(train_tras):.4f}",
+            f"{np.mean(test_tras):.4f} ± {np.std(test_tras):.4f}",
+        ))
+
+    print("  " + "=" * 116)
+
+    # Per-restart detail
+    print("\n  Per-restart detail:")
+    fmt_detail = "    {:<22} {:<12} {:>3}  random TRA={:>7}  opt train TRA={:>7}  opt test TRA={:>7}  test AOGM={:>10}"
+    for r in results:
+        if "error" in r:
+            print(f"    {r['dataset']:<22} restart {r.get('restart_idx', '?'):>3}  ERROR: {r['error']}")
+        else:
+            rand_tra = r["random_train_TRA"]
+            rand_str = f"{rand_tra:.4f}" if rand_tra is not None else "  N/A"
+            print(fmt_detail.format(
+                r["dataset"], f"{r['train_seq']}→{r['test_seq']}",
+                r["restart_idx"],
+                rand_str,
+                f"{r['train_TRA']:.4f}",
+                f"{r['test_TRA']:.4f}",
+                f"{r['test_AOGM']:.2f}",
+            ))
+    print()
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1606,7 +1465,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--datasets", nargs="+", default=DEFAULT_DATASETS,
         choices=list(DATASETS.keys()), metavar="DATASET",
-        help=f"Datasets to benchmark. Choices: {list(DATASETS.keys())}. Default: {DEFAULT_DATASETS}.",
+        help=f"Datasets to benchmark. Choices: {list(DATASETS.keys())}. "
+             f"Default: {DEFAULT_DATASETS}.",
     )
     parser.add_argument(
         "--sequences", nargs="+", default=None, metavar="SEQ",
@@ -1636,6 +1496,7 @@ def parse_args() -> argparse.Namespace:
         "--skip-btrack", action="store_true",
         help="Skip the btrack baseline comparison.",
     )
+    # Optimisation flags
     parser.add_argument(
         "--skip-optimisation", action="store_true",
         help="Skip the optimisation benchmark.",
@@ -1656,17 +1517,18 @@ def parse_args() -> argparse.Namespace:
         "--optim-timeout", type=int, default=25,
         help="Per-trial timeout in seconds for optimisation. Default: 25.",
     )
+    # Random-restart flags
     parser.add_argument(
-        "--n-random-eval", type=int, default=10,
-        help=(
-            "Number of random parameter sets to evaluate per dataset for the "
-            "'Random' baseline and warm-start of 'Trained from Random'. "
-            "Set to 0 to disable. Default: 10."
-        ),
+        "--random-restarts", action="store_true",
+        help="Run the random-restart robustness experiment.",
     )
     parser.add_argument(
-        "--db-path", type=str, default="btrack_benchmark.db",
-        help="SQLite database path for Optuna studies. Default: btrack_benchmark.db",
+        "--only-restarts", action="store_true",
+        help="Only run the random-restart experiment (skip everything else).",
+    )
+    parser.add_argument(
+        "--n-restarts", type=int, default=10,
+        help="Number of independent optimisation restarts. Default: 10.",
     )
     return parser.parse_args()
 
@@ -1686,34 +1548,40 @@ def main() -> int:
         "  Data source: Cell Tracking Challenge "
         "(https://celltrackingchallenge.net/)\n"
     )
-    if args.gt_only:
-        print("  Segmentation source: GT only (--gt-only)")
-    else:
-        print("  Segmentation source: GT + ST merged (use --gt-only to disable)")
 
+    seg_label = "GT only (--gt-only)" if args.gt_only else "GT + ST merged"
+    print(f"  Segmentation source: {seg_label}")
+
+    run_presets = not args.only_optimisation and not args.only_restarts
+    run_optim = (not args.skip_optimisation and not args.only_restarts) or args.only_optimisation
+    run_restarts = args.random_restarts or args.only_restarts
+
+    if args.only_restarts:
+        run_presets = False
+        run_optim = False
     if args.only_optimisation:
-        print("  Methods: optimisation only (--only-optimisation)")
+        run_presets = False
+        run_restarts = False
+
+    if run_presets:
+        print(f"  Preset benchmark: easytrack" + ("" if args.skip_btrack else " vs btrack"))
+    if run_optim:
+        print(f"  Optimisation: {args.n_random} random + {args.n_tpe} TPE trials, "
+              f"{args.optim_timeout}s timeout")
     else:
-        if args.skip_btrack:
-            print("  Methods: easytrack only (--skip-btrack)")
-        else:
-            print("  Methods: easytrack vs btrack baseline")
-        if not args.skip_optimisation:
-            print(f"  Optimisation: {args.n_random} random + {args.n_tpe} TPE trials, "
-                  f"{args.optim_timeout}s timeout")
-            if args.n_random_eval > 0:
-                print(f"  Random evaluation: {args.n_random_eval} random param sets "
-                      f"(Random baseline + Trained from Random warm-start)")
-        else:
-            print("  Optimisation: skipped (--skip-optimisation)")
+        print("  Optimisation: skipped")
+    if run_restarts:
+        print(f"  Random-restart experiment: {args.n_restarts} restarts, "
+              f"{args.n_random}R+{args.n_tpe}T trials each")
     print()
 
     data_dir: Path = args.data_dir.resolve()
     results_dir: Path = args.results_dir.resolve()
-    results: List[Dict] = []
+    preset_results: List[Dict] = []
     optim_results: List[Dict] = []
+    restart_results: List[Dict] = []
 
-    # Download all datasets first
+    # Download
     for dataset_name in args.datasets:
         if not args.skip_download:
             try:
@@ -1721,12 +1589,11 @@ def main() -> int:
             except Exception:
                 print(f"  Skipping {dataset_name} due to download failure.")
 
-    # Preset-based benchmarks (easytrack + btrack)
-    if not args.only_optimisation:
+    # 1. Preset benchmarks
+    if run_presets:
         for dataset_name in args.datasets:
             info = DATASETS[dataset_name]
             dataset_dir = data_dir / dataset_name
-
             if not dataset_dir.exists():
                 if args.skip_download:
                     print(f"  ERROR: --skip-download but {dataset_dir} missing.")
@@ -1743,36 +1610,45 @@ def main() -> int:
                     dataset_dir=dataset_dir, preset_name=args.preset,
                     gt_only=args.gt_only, skip_btrack=args.skip_btrack,
                 )
-                results.extend(seq_results)
+                preset_results.extend(seq_results)
 
-    # Optimisation benchmarks with cross-validation
-    if not args.skip_optimisation:
+    # 2. Optimisation benchmarks
+    if run_optim:
         print("\n" + "=" * 80)
         print("OPTIMISATION BENCHMARKS")
         print("=" * 80)
-
         optim_results = run_optimisation_benchmarks(
-            datasets_to_run=args.datasets,
-            data_dir=data_dir,
-            results_dir=results_dir,
-            gt_only=args.gt_only,
-            db_path=args.db_path,
-            n_random=args.n_random,
-            n_tpe=args.n_tpe,
-            timeout=args.optim_timeout,
-            n_random_eval=args.n_random_eval,
+            datasets_to_run=args.datasets, data_dir=data_dir,
+            results_dir=results_dir, gt_only=args.gt_only,
+            n_random=args.n_random, n_tpe=args.n_tpe, timeout=args.optim_timeout,
+        )
+
+    # 3. Random-restart robustness experiment
+    if run_restarts:
+        print("\n" + "=" * 80)
+        print("RANDOM-RESTART ROBUSTNESS EXPERIMENT")
+        print("=" * 80)
+        restart_results = run_restart_experiment(
+            datasets_to_run=args.datasets, data_dir=data_dir,
+            results_dir=results_dir, gt_only=args.gt_only,
+            n_restarts=args.n_restarts,
+            n_random=args.n_random, n_tpe=args.n_tpe, timeout=args.optim_timeout,
         )
 
     # Save & summarise
-    if results:
-        save_results(results, results_dir)
-        print_summary(results)
+    if preset_results:
+        save_results(preset_results, results_dir, prefix="ctc_benchmark")
+        print_summary(preset_results)
 
     if optim_results:
-        save_optimisation_results(optim_results, results_dir)
+        save_results(optim_results, results_dir, prefix="optimisation")
         print_optimisation_summary(optim_results)
 
-    if not results and not optim_results:
+    if restart_results:
+        save_results(restart_results, results_dir, prefix="restart_robustness")
+        print_restart_summary(restart_results)
+
+    if not preset_results and not optim_results and not restart_results:
         print("\nNo results to report.")
 
     return 0
