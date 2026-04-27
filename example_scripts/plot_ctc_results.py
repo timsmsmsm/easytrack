@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from pandas.core.interchange.dataframe_protocol import DataFrame
+
 # Configure plotting
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['figure.figsize'] = (16, 12)
@@ -118,7 +120,7 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
             original_value = data[method][j]
             if not np.isnan(original_value):
                 ax.text(bar.get_x() + bar.get_width() / 2., height,
-                       f'{original_value:.2f}', ha='center', va='bottom', fontsize=8)
+                       f'{original_value:.4f}', ha='center', va='bottom', fontsize=8)
 
     # Styling
     ax.set_xlabel('Dataset', fontsize=14, fontweight='bold', labelpad=10)
@@ -129,7 +131,7 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
     ax.tick_params(axis='y', labelsize=11)
 
     # Legend styling
-    ax.legend(loc='upper right', fontsize=11, frameon=True, fancybox=True,
+    ax.legend(loc='lower left', fontsize=11, frameon=True, fancybox=True,
              shadow=True, edgecolor='gray', framealpha=0.95)
 
     # Grid styling
@@ -138,7 +140,7 @@ def plot_metric_by_dataset(ax, metric_data: Dict, metric: str, metric_config: Di
 
     # Set y-axis limits based on metric type
     if metric_config['is_higher_better']:
-        ax.set_ylim([0.0, 1.05])
+        ax.set_ylim([0.7, 1.01])
 
     # Improve layout
     ax.spines['top'].set_visible(False)
@@ -272,6 +274,10 @@ def main():
 
     # Concatenate both df_optimised and df into df
     df = pd.concat([df, df_optimised], ignore_index=True)
+    # Save df to a CSV file
+    df.to_csv(output_dir / "combined_benchmark_results.csv", index=False)
+
+    # Obtaining metrics
     metrics = list(METRIC_CONFIGS.keys())
     methods = sorted(df['method'].unique())
 
@@ -282,6 +288,13 @@ def main():
 
     # Pre-compute all metric comparisons for this eval_type
     metric_data_list = {metric: compute_metric_by_dataset(df, metric) for metric in metrics}
+    # Save csv for each metric_data
+    for metric in metrics:
+        metric_df = pd.DataFrame({
+            'dataset': metric_data_list[metric]['datasets'],
+            **{method: metric_data_list[metric]['data'][method] for method in metric_data_list[metric]['methods']}
+        })
+        metric_df.to_csv(output_dir / f"{eval_type_prefix}01_metric_{metric.lower()}.csv", index=False)
 
     # 1. Overall comparison
     plt.figure(figsize=(10, 6))
