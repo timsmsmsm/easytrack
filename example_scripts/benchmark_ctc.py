@@ -103,6 +103,7 @@ from napari_easytrack.utils import clean_segmentation
 from prepare_wing_disc import prepare_dataset as prepare_wing_disc_dataset, WING_DISC_DATASETS
 
 import btrack
+from btrack import datasets
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -624,7 +625,7 @@ def run_btrack_baseline(segmentation: np.ndarray) -> tuple[np.ndarray, np.ndarra
         raise ValueError(f"Unexpected segmentation ndim={ndim}")
 
     objects = btrack.utils.segmentation_to_objects(segmentation, properties=("area",))
-    btrack_config = btrack.datasets.cell_config()
+    btrack_config = datasets.cell_config()
 
     with btrack.BayesianTracker() as tracker:
         tracker.configure(btrack_config)
@@ -636,39 +637,44 @@ def run_btrack_baseline(segmentation: np.ndarray) -> tuple[np.ndarray, np.ndarra
 
     print(f"    [btrack] Found {len(btrack_tracks)} tracks")
 
-    tracked_seg = np.zeros_like(segmentation, dtype=np.uint16)
+    # Use btrack's own update_segmentation for reliable pixel relabelling
+    tracked_seg = btrack.utils.update_segmentation(
+        segmentation, btrack_tracks
+    ).astype(np.uint16)
+
+    # Build LBEP from btrack metadata (preserves division lineage)
     lbep_rows = []
     for track in btrack_tracks:
         track_id = track.ID
-        start_frame = int(track.t[0])
-        end_frame = int(track.t[-1])
         parent_id = int(track.parent) if track.parent is not None else 0
-        lbep_rows.append([track_id, start_frame, end_frame, parent_id])
-        for t_idx, t_frame in enumerate(track.t):
-            t_frame = int(t_frame)
-            if t_frame < 0 or t_frame >= segmentation.shape[0]:
-                continue
-            y = int(round(track.y[t_idx]))
-            x = int(round(track.x[t_idx]))
-            if ndim == 4:
-                z = int(round(track.z[t_idx]))
-                z = max(0, min(z, segmentation.shape[1] - 1))
-                y = max(0, min(y, segmentation.shape[2] - 1))
-                x = max(0, min(x, segmentation.shape[3] - 1))
-                seg_label = segmentation[t_frame, z, y, x]
-                if seg_label > 0:
-                    tracked_seg[t_frame][segmentation[t_frame] == seg_label] = track_id
-            else:
-                y = max(0, min(y, segmentation.shape[1] - 1))
-                x = max(0, min(x, segmentation.shape[2] - 1))
-                seg_label = segmentation[t_frame, y, x]
-                if seg_label > 0:
-                    tracked_seg[t_frame][segmentation[t_frame] == seg_label] = track_id
+        lbep_rows.append([track_id, int(track.t[0]), int(track.t[-1]), parent_id])
 
-    lbep = np.array(lbep_rows, dtype=np.int64)
+    # Correct LBEP spans to match actual mask content — ensures every
+    # (track_id, frame) pair in the LBEP has pixels in tracked_seg
+    axes = tuple(range(1, tracked_seg.ndim))
+    corrected_rows = []
+    for row in lbep_rows:
+        track_id, start, end, parent_id = row
+        present = np.where(np.any(tracked_seg == track_id, axis=axes))[0]
+        if len(present) == 0:
+            continue  # track never made it into the mask
+        corrected_rows.append([track_id, int(present[0]), int(present[-1]), parent_id])
+
+    # Clean up orphaned parent references
+    surviving_ids = {r[0] for r in corrected_rows}
+    for row in corrected_rows:
+        if row[3] != 0 and row[3] not in surviving_ids:
+            row[3] = 0
+
+    lbep = np.array(corrected_rows, dtype=np.int64)
+
     n_tracks = len(btrack_tracks)
     n_long = sum(1 for t in btrack_tracks if len(t.t) > 1)
+    n_dropped = len(lbep_rows) - len(corrected_rows)
     print(f"    [btrack] Tracks > 1 frame: {n_long} of {n_tracks}")
+    if n_dropped > 0:
+        print(f"    [btrack] Dropped {n_dropped} tracks with no mask pixels")
+
     return tracked_seg, lbep
 
 
