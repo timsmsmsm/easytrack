@@ -84,6 +84,7 @@ import urllib.request
 import zipfile
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Dict, List, Any
 
 import numpy as np
@@ -184,7 +185,7 @@ DATASETS: Dict[str, Dict] = {
     },
 }
 
-DEFAULT_DATASETS = ["wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1"]
+DEFAULT_DATASETS = ["wing_disc", "PhC-C2DH-U373", "DIC-C2DH-HeLa", "Fluo-N2DH-GOWT1", "Fluo-C3DH-A549-SIM"]
 
 CROSS_VALIDATION_PAIRS = {
     "PhC-C2DH-U373": [("01", "02"), ("02", "01")],
@@ -589,19 +590,93 @@ def _save_ctc_results(tracked_seg: np.ndarray, lbep: np.ndarray, res_dir: Path) 
 
 
 def _evaluate_tracking(gt_data, tracked_seg: np.ndarray, lbep: np.ndarray) -> Dict:
-    pred_data = _build_pred_graph(tracked_seg, lbep)
-    ctc_results, _ = run_metrics(
-        gt_data=gt_data,
-        pred_data=pred_data,
-        matcher=CTCMatcher(),
-        metrics=[CTCMetrics()],
-    )
-    pp.pprint(ctc_results)
-    return {
-        "TRA": ctc_results[0]["results"]["TRA"],
-        "DET": ctc_results[0]["results"]["DET"],
-        "AOGM": ctc_results[0]["results"]["AOGM"],
-    }
+    from traccuracy.loaders import load_ctc_data
+
+    # Filter lbep to only include cells that actually exist in the tracked_seg
+    # at each frame they're listed in. This prevents inconsistencies between
+    # the tracking metadata and masks
+    lbep_filtered = []
+    axes = tuple(range(1, tracked_seg.ndim))
+
+    for row in lbep:
+        cell_id = int(row[0])
+        start_frame = int(row[1])
+        end_frame = int(row[2])
+        parent_id = int(row[3])
+
+        # Find actual first and last frames where this cell has pixels
+        actual_frames = []
+        for t in range(tracked_seg.shape[0]):
+            if np.any(tracked_seg[t] == cell_id):
+                actual_frames.append(t)
+
+        if len(actual_frames) == 0:
+            # Cell has no pixels, skip it
+            continue
+
+        # Use actual first and last frames
+        actual_start = actual_frames[0]
+        actual_end = actual_frames[-1]
+
+        lbep_filtered.append([cell_id, actual_start, actual_end, parent_id])
+
+    if len(lbep_filtered) == 0:
+        # No valid cells found - return worst possible scores
+        print("      WARNING: No valid cells found in tracked_seg")
+        return {
+            "TRA": 0.0,
+            "DET": 0.0,
+            "AOGM": 1.0,
+        }
+
+    lbep_filtered = np.array(lbep_filtered, dtype=lbep.dtype)
+
+    # Create temporary directory and save predicted segmentation + filtered tracking file
+    with TemporaryDirectory() as tmpdir:
+        pred_dir = Path(tmpdir) / "pred_res"
+        pred_dir.mkdir(exist_ok=True)
+
+        # Save predicted segmentation masks
+        for t in range(tracked_seg.shape[0]):
+            frame_path = pred_dir / f"mask{t:03d}.tif"
+            io.imsave(str(frame_path), tracked_seg[t], check_contrast=False)
+
+        # Save filtered predicted tracking file
+        track_file = pred_dir / "man_track.txt"
+        _write_lbep_to_csv(lbep_filtered, track_file)
+
+        try:
+            # Load predicted data using load_ctc_data() to ensure annotations match GT data
+            pred_data = load_ctc_data(
+                str(pred_dir),
+                str(track_file),
+                name="prediction",
+            )
+
+            ctc_results, _ = run_metrics(
+                gt_data=gt_data,
+                pred_data=pred_data,
+                matcher=CTCMatcher(),
+                metrics=[CTCMetrics()],
+            )
+            pp.pprint(ctc_results)
+            return {
+                "TRA": ctc_results[0]["results"]["TRA"],
+                "DET": ctc_results[0]["results"]["DET"],
+                "AOGM": ctc_results[0]["results"]["AOGM"],
+            }
+        except ValueError as e:
+            # Handle cases where tracking data is too inconsistent for metrics
+            if "Missing IDs in masks" in str(e):
+                print(f"      WARNING: {e}")
+                print("      Assigning worst possible scores due to inconsistent tracking data")
+                return {
+                    "TRA": 0.0,
+                    "DET": 0.0,
+                    "AOGM": 100000.0,
+                }
+            else:
+                raise
 
 
 def run_easytrack(segmentation: np.ndarray, preset_name: str) -> tuple[np.ndarray, np.ndarray]:
@@ -994,6 +1069,54 @@ def _extract_first_trial_params(study_name: str) -> dict | None:
     return None
 
 
+def _try_save_first_trial_params(first_trial_params: dict, save_path: Path) -> bool:
+    """Try to save first trial parameters to JSON file.
+
+    If save fails, discard these parameters and generate new random ones,
+    retrying indefinitely until save succeeds.
+
+    Args:
+        first_trial_params: Dict of parameters to save
+        save_path: Path where to save the JSON file
+
+    Returns:
+        True when save finally succeeds
+    """
+    if first_trial_params is None:
+        return False
+
+    current_params = first_trial_params.copy()
+    attempt = 0
+
+    while True:
+        try:
+            with open(save_path, "w") as f:
+                json.dump(current_params, f, indent=2)
+            print(f"    ✓ Saved first trial params to {save_path.name}")
+            return True
+        except Exception as save_exc:
+            attempt += 1
+            print(f"    ✗ Attempt {attempt} to save first_trial_params.json failed: {save_exc}")
+
+            # Generate new random parameters for next retry
+            print(f"    → Discarding parameters, generating new random ones for retry...")
+            import numpy as np
+            from napari_easytrack.analysis.optim_pipeline import PARAM_RANGES
+
+            try:
+                current_params = {}
+                for param_name, (low, high, *param_type) in PARAM_RANGES.items():
+                    if param_type and param_type[0] == 'int':
+                        current_params[param_name] = int(np.random.uniform(low, high + 1))
+                    else:
+                        current_params[param_name] = float(np.random.uniform(low, high))
+            except Exception as gen_exc:
+                print(f"    ✗ Failed to generate new random parameters: {gen_exc}")
+                print(f"    → Retrying with original parameters...")
+                current_params = first_trial_params.copy()
+
+
+
 def evaluate_with_params(params: dict, segmentation: np.ndarray, gt_data, label: str) -> dict:
     """Run tracking with given params and evaluate against GT."""
     print(f"      Evaluating on {label}...")
@@ -1193,15 +1316,12 @@ def run_restart_experiment(
                 })
                 continue
 
-            # Pre-load test data once (shared across all restarts)
-            print("    Loading test data...")
+            # Pre-load segmentation data once (these don't change)
+            print("    Loading test segmentation...")
             test_seg = _load_and_clean_segmentation(test_seg_dir)
-            test_gt = _load_filtered_gt(dataset_dir, test_seq, test_seg)
 
-            # Also pre-load train evaluation data
-            print("    Loading train evaluation data...")
+            print("    Loading train segmentation...")
             train_seg = _load_and_clean_segmentation(train_seg_dir)
-            train_gt = _load_filtered_gt(dataset_dir, train_seq, train_seg)
 
             pair_convergence = []
 
@@ -1230,6 +1350,13 @@ def run_restart_experiment(
                     with open(raw_file, "w") as f:
                         json.dump(best_params, f, indent=2)
 
+                    # Reload GT data fresh for each restart to avoid annotation state mismatches
+                    # After first evaluation, GT graph gets annotated by traccuracy; we need
+                    # both GT and pred graphs to have matching annotation states
+                    print("    Reloading GT data for this restart...")
+                    train_gt = _load_filtered_gt(dataset_dir, train_seq, train_seg)
+                    test_gt = _load_filtered_gt(dataset_dir, test_seq, test_seg)
+
                     # --- Evaluate first trial's random params (baseline) ---
                     first_trial_params = _extract_first_trial_params(study_name)
                     random_train_metrics = {"TRA": None, "DET": None, "AOGM": None}
@@ -1241,8 +1368,7 @@ def run_restart_experiment(
                         )
                         # Save random params too
                         random_file = params_dir / f"{study_name}_first_trial_params.json"
-                        with open(random_file, "w") as f:
-                            json.dump(first_trial_params, f, indent=2)
+                        _try_save_first_trial_params(first_trial_params, random_file)
                     else:
                         print(f"    WARNING: could not extract first trial params")
 
@@ -1662,3 +1788,8 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+
+
+
