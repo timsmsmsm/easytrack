@@ -42,8 +42,9 @@ def load_data(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     print(f"✓ Loaded {len(df)} rows from {csv_path}")
     print(f"  Datasets: {len(df['dataset'].unique())} unique")
-    print(f"  Methods: {list(df['method'].unique())}")
-    print(f"  Metrics: {', '.join(METRIC_CONFIGS.keys())}")
+    if 'method' in df.columns:
+        print(f"  Methods: {list(df['method'].unique())}")
+    print(f"  Metrics: {', '.join([m for m in METRIC_CONFIGS.keys() if m in df.columns])}")
     return df
 
 
@@ -248,15 +249,127 @@ def save_plot(filename: str, output_dir: Path = None) -> Path:
     return output_path
 
 
+def plot_restart_robustness(df_restart: pd.DataFrame, output_dir: Path) -> None:
+    """Plot restart robustness results grouped by dataset.
+
+    Shows:
+    - Random baseline metrics (first trial)
+    - Optimised train metrics
+    - Optimised test metrics
+    Averaged across all restarts for each dataset.
+    """
+    # Filter out error rows (rows with 'error' column filled)
+    df_valid = df_restart[df_restart['error'].isna()].copy()
+
+    if df_valid.empty:
+        print("  WARNING: No valid restart robustness results found")
+        return
+
+    # Group by dataset and calculate mean metrics
+    datasets = sorted(df_valid['dataset'].unique())
+    metrics = ['TRA', 'DET', 'AOGM']
+
+    # Prepare data for plotting
+    restart_data = {}
+    for dataset in datasets:
+        dataset_df = df_valid[df_valid['dataset'] == dataset]
+        restart_data[dataset] = {
+            'random_train': {},
+            'opt_train': {},
+            'opt_test': {}
+        }
+
+        # Random baseline (first trial)
+        for metric in metrics:
+            col = f'random_train_{metric}'
+            if col in dataset_df.columns:
+                valid_vals = dataset_df[col].copy()
+
+                if len(valid_vals) > 0:
+                    restart_data[dataset]['random_train'][metric] = valid_vals.mean()
+                else:
+                    # No valid random baseline - likely all timed out
+                    restart_data[dataset]['random_train'][metric] = np.nan
+
+        # Optimised train metrics
+        for metric in metrics:
+            col = f'train_{metric}'
+            if col in dataset_df.columns:
+                valid_vals = dataset_df[col].copy()
+
+                if len(valid_vals) > 0:
+                    restart_data[dataset]['opt_train'][metric] = valid_vals.mean()
+                else:
+                    restart_data[dataset]['opt_train'][metric] = np.nan
+
+        # Optimised test metrics
+        for metric in metrics:
+            col = f'test_{metric}'
+            if col in dataset_df.columns:
+                valid_vals = dataset_df[col].copy()
+
+                if len(valid_vals) > 0:
+                    restart_data[dataset]['opt_test'][metric] = valid_vals.mean()
+                else:
+                    restart_data[dataset]['opt_test'][metric] = np.nan
+
+    # Create comparison plots for each metric
+    for metric in metrics:
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        x = np.arange(len(datasets))
+        width = 0.25
+
+        random_vals = [restart_data[d]['random_train'].get(metric, np.nan) for d in datasets]
+        train_vals = [restart_data[d]['opt_train'].get(metric, np.nan) for d in datasets]
+        test_vals = [restart_data[d]['opt_test'].get(metric, np.nan) for d in datasets]
+
+        # Plot bars
+        ax.bar(x - width, random_vals, width, label='Random (first trial)',
+               alpha=0.85, edgecolor='black', color='#9467bd')
+        ax.bar(x, train_vals, width, label='Optimised (train)',
+               alpha=0.85, edgecolor='black', color='#2ca02c')
+        ax.bar(x + width, test_vals, width, label='Optimised (test)',
+               alpha=0.85, edgecolor='black', color='#d62728')
+
+        # Add value labels on bars
+        for i, (rv, tv, tv2) in enumerate(zip(random_vals, train_vals, test_vals)):
+            if not np.isnan(rv):
+                ax.text(i - width, rv, f'{rv:.2f}', ha='center', va='bottom', fontsize=9)
+            if not np.isnan(tv):
+                ax.text(i, tv, f'{tv:.2f}', ha='center', va='bottom', fontsize=9)
+            if not np.isnan(tv2):
+                ax.text(i + width, tv2, f'{tv2:.2f}', ha='center', va='bottom', fontsize=9)
+
+        # Styling
+        ax.set_xlabel('Dataset', fontsize=14, fontweight='bold')
+        ax.set_ylabel(f'{metric} Score', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(datasets, rotation=45, ha='right')
+        ax.legend(fontsize=11, loc='best')
+        ax.grid(axis='y', alpha=0.3)
+        ax.set_axisbelow(True)
+
+        # Set y-axis limits
+        metric_config = METRIC_CONFIGS.get(metric, {})
+        if metric_config.get('is_higher_better', True):
+            ax.set_ylim([0, 1.05])
+
+        fig.tight_layout()
+        save_plot(f"10_restart_robustness_{metric.lower()}_by_dataset.png", output_dir)
+
+
 def main():
     """Main execution function."""
     csv_path = Path(__file__).parent / "ctc_results" / "ctc_benchmark_results.csv"
     optimised_results_path = Path(__file__).parent / "ctc_results" / "optimisation_results.csv"
+    restart_results_path = Path(__file__).parent / "ctc_results" / "restart_robustness_results_v1.csv"
     output_dir = csv_path.parent
     
     # Load and validate data
     df = load_data(csv_path)
     df_optimised = load_data(optimised_results_path)
+    df_restart = load_data(restart_results_path)
 
     # Group df_optimised by eval_type for each dataset and average metrics to compare with df
     if 'eval_type' in df_optimised.columns:
@@ -313,6 +426,12 @@ def main():
     plt.figure(figsize=(14, 6))
     plot_performance_difference(plt.gca(), metric_data_list)
     save_plot(f"{eval_type_prefix}04_performance_difference.png", output_dir)
+
+    # 7. Restart robustness results (grouped by dataset)
+    print("\n" + "="*70)
+    print("GENERATING RESTART ROBUSTNESS PLOTS")
+    print("="*70)
+    plot_restart_robustness(df_restart, output_dir)
 
     # Print statistics
     print_summary_statistics(df, metrics)
