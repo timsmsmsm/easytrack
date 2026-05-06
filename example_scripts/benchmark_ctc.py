@@ -1069,6 +1069,88 @@ def _extract_first_trial_params(study_name: str) -> dict | None:
     return None
 
 
+def _extract_first_trial_objective(study_name: str) -> float | None:
+    """Extract the objective value (AOGM) of the first valid trial.
+
+    This gives the AOGM baseline that was achieved during optimization with
+    the first random parameter draw, without re-evaluation.
+    """
+    import optuna
+
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except Exception:
+        return None
+
+    for trial in sorted(study.trials, key=lambda t: t.number):
+        if _is_valid_trial(trial, require_params=True):
+            return trial.value
+    return None
+
+
+def _extract_first_trial_metrics(study_name: str) -> dict | None:
+    """Extract the full metrics (TRA, DET, AOGM) of the first valid trial.
+
+    These are the metrics that were computed during the optimization phase,
+    not re-computed. This ensures we're comparing the optimization's first
+    random baseline against its best optimized parameters.
+    """
+    import optuna
+
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except Exception:
+        return None
+
+    for trial in sorted(study.trials, key=lambda t: t.number):
+        if _is_valid_trial(trial, require_params=True):
+            # Extract metrics from user_attrs if available, else return None
+            user_attrs = trial.user_attrs or {}
+            return {
+                "TRA": user_attrs.get("TRA", None),
+                "DET": user_attrs.get("DET", None),
+                "AOGM": trial.value,  # AOGM is the objective value
+            }
+    return None
+
+
+def _extract_best_trial_metrics(study_name: str) -> dict | None:
+    """Extract the full metrics (TRA, DET, AOGM) of the best trial from the study.
+
+    This ensures we're using the AOGM-optimized trial's metrics as they were
+    computed during optimization, matching the context of the first trial metrics.
+    """
+    import optuna
+
+    storage = optuna.storages.RDBStorage(
+        url="sqlite:///btrack.db",
+        engine_kwargs={"connect_args": {"timeout": 100}},
+    )
+    try:
+        study = optuna.load_study(study_name=study_name, storage=storage)
+    except Exception:
+        return None
+
+    best_trial = study.best_trial
+    if best_trial is None or best_trial.value is None:
+        return None
+
+    user_attrs = best_trial.user_attrs or {}
+    return {
+        "TRA": user_attrs.get("TRA", None),
+        "DET": user_attrs.get("DET", None),
+        "AOGM": best_trial.value,
+    }
+
+
 def _try_save_first_trial_params(first_trial_params: dict, save_path: Path) -> bool:
     """Try to save first trial parameters to JSON file.
 
@@ -1357,26 +1439,38 @@ def run_restart_experiment(
                     train_gt = _load_filtered_gt(dataset_dir, train_seq, train_seg)
                     test_gt = _load_filtered_gt(dataset_dir, test_seq, test_seg)
 
-                    # --- Evaluate first trial's random params (baseline) ---
-                    first_trial_params = _extract_first_trial_params(study_name)
-                    random_train_metrics = {"TRA": None, "DET": None, "AOGM": None}
-                    if first_trial_params is not None:
-                        print(f"    Evaluating first (random) trial params...")
-                        random_train_metrics = evaluate_with_params(
-                            first_trial_params, train_seg, train_gt,
-                            label=f"restart{restart_idx}_random_train_{train_seq}",
-                        )
-                        # Save random params too
-                        random_file = params_dir / f"{study_name}_first_trial_params.json"
-                        _try_save_first_trial_params(first_trial_params, random_file)
+                    # --- Extract first trial's metrics (baseline) ---
+                    # Use the metrics computed during optimization, not re-evaluated
+                    # This ensures we're comparing first random trial vs best optimized trial
+                    # from the same optimization study
+                    random_train_metrics = _extract_first_trial_metrics(study_name)
+                    if random_train_metrics is None:
+                        random_train_metrics = {"TRA": None, "DET": None, "AOGM": None}
+                        print(f"    WARNING: could not extract first trial metrics from study")
                     else:
-                        print(f"    WARNING: could not extract first trial params")
+                        print(f"    ✓ Using first trial metrics from optimization study:")
+                        print(f"      TRA={random_train_metrics['TRA']}, DET={random_train_metrics['DET']}, AOGM={random_train_metrics['AOGM']:.2f}")
+                        # Save params for reference
+                        first_trial_params = _extract_first_trial_params(study_name)
+                        if first_trial_params is not None:
+                            random_file = params_dir / f"{study_name}_first_trial_params.json"
+                            _try_save_first_trial_params(first_trial_params, random_file)
 
-                    # --- Evaluate best (optimised) params ---
-                    train_metrics = evaluate_with_params(
-                        best_params, train_seg, train_gt,
-                        label=f"restart{restart_idx}_train_{train_seq}",
-                    )
+                    # --- Extract best trial's metrics (train) ---
+                    # Use the metrics from the best AOGM trial as computed during optimization
+                    best_study_metrics = _extract_best_trial_metrics(study_name)
+                    if best_study_metrics is not None and best_study_metrics["AOGM"] is not None:
+                        # If we got metrics from the study, use those for train
+                        train_metrics = best_study_metrics
+                        print(f"    ✓ Using best trial metrics from optimization study:")
+                        print(f"      TRA={train_metrics['TRA']}, DET={train_metrics['DET']}, AOGM={train_metrics['AOGM']:.2f}")
+                    else:
+                        # Fallback: re-evaluate best params (only if study extraction failed)
+                        print(f"    Evaluating best (optimised) params on train data...")
+                        train_metrics = evaluate_with_params(
+                            best_params, train_seg, train_gt,
+                            label=f"restart{restart_idx}_train_{train_seq}",
+                        )
 
                     test_metrics = evaluate_with_params(
                         best_params, test_seg, test_gt,
