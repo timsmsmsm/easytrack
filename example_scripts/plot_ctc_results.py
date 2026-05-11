@@ -259,7 +259,10 @@ def plot_restart_robustness(df_restart: pd.DataFrame, output_dir: Path) -> None:
     Averaged across all restarts for each dataset.
     """
     # Filter out error rows (rows with 'error' column filled)
-    df_valid = df_restart[df_restart['error'].isna()].copy()
+    if 'error' in df_restart.columns:
+        df_valid = df_restart[df_restart['error'].isna()].copy()
+    else:
+        df_valid = df_restart
 
     if df_valid.empty:
         print("  WARNING: No valid restart robustness results found")
@@ -315,45 +318,81 @@ def plot_restart_robustness(df_restart: pd.DataFrame, output_dir: Path) -> None:
 
     # Create comparison plots for each metric
     for metric in metrics:
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(14, 6))
 
         x = np.arange(len(datasets))
-        width = 0.25
+
+        # Calculate bar width based on number of methods (3)
+        num_methods = 3
+        width = max(0.08, 0.7 / num_methods)
 
         random_vals = [restart_data[d]['random_train'].get(metric, np.nan) for d in datasets]
         train_vals = [restart_data[d]['opt_train'].get(metric, np.nan) for d in datasets]
         test_vals = [restart_data[d]['opt_test'].get(metric, np.nan) for d in datasets]
 
-        # Plot bars
-        ax.bar(x - width, random_vals, width, label='Random (first trial)',
-               alpha=0.85, edgecolor='black', color='#9467bd')
-        ax.bar(x, train_vals, width, label='Optimised (train)',
-               alpha=0.85, edgecolor='black', color='#2ca02c')
-        ax.bar(x + width, test_vals, width, label='Optimised (test)',
-               alpha=0.85, edgecolor='black', color='#d62728')
+        # Prepare bar heights with minimum value for zero values
+        bar_data = {
+            'Random': random_vals,
+            'Trained from Random': train_vals,
+            'Optimised (test)': test_vals
+        }
 
-        # Add value labels on bars
-        for i, (rv, tv, tv2) in enumerate(zip(random_vals, train_vals, test_vals)):
-            if not np.isnan(rv):
-                ax.text(i - width, rv, f'{rv:.2f}', ha='center', va='bottom', fontsize=9)
-            if not np.isnan(tv):
-                ax.text(i, tv, f'{tv:.2f}', ha='center', va='bottom', fontsize=9)
-            if not np.isnan(tv2):
-                ax.text(i + width, tv2, f'{tv2:.2f}', ha='center', va='bottom', fontsize=9)
+        colors_restart = {
+            'Random': '#9467bd',
+            'Trained from Random': '#2ca02c',
+            'Optimised (test)': '#d62728'
+        }
 
-        # Styling
-        ax.set_xlabel('Dataset', fontsize=14, fontweight='bold')
-        ax.set_ylabel(f'{metric} Score', fontsize=14, fontweight='bold')
+        # Plot bars for each category
+        for i, (label, values) in enumerate(bar_data.items()):
+            offset = (i - num_methods / 2 + 0.5) * width
+
+            # Prepare bar heights with minimum value for visibility
+            bar_heights = []
+            for val in values:
+                if np.isnan(val):
+                    bar_heights.append(np.nan)
+                elif val == 0.0:
+                    bar_heights.append(0.02)  # Minimum height for visibility
+                else:
+                    bar_heights.append(val)
+
+            bars = ax.bar(x + offset, bar_heights, width, label=label,
+                         alpha=0.85, edgecolor='black', linewidth=1.2, color=colors_restart[label])
+
+            # Add value labels on bars
+            for j, bar in enumerate(bars):
+                height = bar.get_height()
+                original_value = values[j]
+                if not np.isnan(original_value):
+                    ax.text(bar.get_x() + bar.get_width() / 2., height,
+                           f'{original_value:.4f}', ha='center', va='bottom', fontsize=8)
+
+        # Styling - matching plot_metric_by_dataset aesthetics
+        ax.set_xlabel('Dataset', fontsize=14, fontweight='bold', labelpad=10)
+        ax.set_ylabel(f'{metric} Score', fontsize=14, fontweight='bold', labelpad=10)
+        metric_config = METRIC_CONFIGS.get(metric, {})
+        ax.set_yscale('log' if not metric_config['is_higher_better'] else 'linear')
         ax.set_xticks(x)
-        ax.set_xticklabels(datasets, rotation=45, ha='right')
-        ax.legend(fontsize=11, loc='best')
-        ax.grid(axis='y', alpha=0.3)
+        ax.set_xticklabels(datasets, rotation=45, ha='right', fontsize=11)
+        ax.tick_params(axis='y', labelsize=11)
+
+        # Legend styling
+        ax.legend(loc='lower left', fontsize=11, frameon=True, fancybox=True,
+                 shadow=True, edgecolor='gray', framealpha=0.95)
+
+        # Grid styling
+        ax.grid(axis='y', alpha=0.4, linestyle='--', linewidth=0.7)
         ax.set_axisbelow(True)
 
-        # Set y-axis limits
-        metric_config = METRIC_CONFIGS.get(metric, {})
         if metric_config.get('is_higher_better', True):
             ax.set_ylim([0, 1.05])
+
+        # Improve layout
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.2)
+        ax.spines['bottom'].set_linewidth(1.2)
 
         fig.tight_layout()
         save_plot(f"10_restart_robustness_{metric.lower()}_by_dataset.png", output_dir)
@@ -363,7 +402,7 @@ def main():
     """Main execution function."""
     csv_path = Path(__file__).parent / "ctc_results" / "ctc_benchmark_results.csv"
     optimised_results_path = Path(__file__).parent / "ctc_results" / "optimisation_results.csv"
-    restart_results_path = Path(__file__).parent / "ctc_results" / "restart_robustness_results_v1.csv"
+    restart_results_path = Path(__file__).parent / "ctc_results" / "restart_robustness_results.csv"
     output_dir = csv_path.parent
     
     # Load and validate data
