@@ -1004,7 +1004,7 @@ def _is_valid_trial(trial, *, require_params: bool = False) -> bool:
     import optuna
     if trial.state != optuna.trial.TrialState.COMPLETE:
         return False
-    if trial.value is None or trial.value >= PENALTY_THRESHOLD:
+    if trial.value is None:
         return False
     if require_params and not trial.params:
         return False
