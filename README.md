@@ -95,12 +95,14 @@ detailed description.
 If you use `napari-easytrack` in your research, please cite the following paper:
 
 ```bibtex
-@software{Huygelen_napari-easytrack,
-    author = {Huygelen, Tim and Lowe, Alan and Mao, Yanlan and Vicente-Munuera, Pablo},
-    license = {MIT},
-    title = {{napari-easytrack}},
-    url = {https://github.com/timsmsmsm/easytrack},
-    year = {2026},
-    doi = {10.5281/zenodo.18200897},
+@article{https://doi.org/10.17912/micropub.biology.002090,
+  doi = {10.17912/MICROPUB.BIOLOGY.002090},
+  url = {https://www.micropublication.org/journals/biology/micropub-biology-002090},
+  author = {Huygelen, Tim and Lowe, Alan and Mao, Yanlan and Vicente-Munuera, Pablo},
+  title = {easytrack: A napari plugin for automated parameter tuning in cell tracking},
+  journal = {microPublication Biology},
+  volume = {2026},
+  publisher = {microPublication Biology},
+  year = {2026}
 }
 ```
