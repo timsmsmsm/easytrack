@@ -157,6 +157,43 @@ class TestCleanSegmentation:
         # Should return integer dtype
         assert np.issubdtype(cleaned.dtype, np.integer)
 
+    def test_inplace_false_does_not_modify_input(self):
+        """Test that inplace=False (default) does not modify the original array."""
+        seg = np.zeros((2, 15, 15), dtype=np.int32)
+        seg[0, 2:8, 2:8] = 1
+        seg[0, 12:14, 12:14] = 1  # small disconnected fragment
+        original = seg.copy()
+
+        cleaned = clean_segmentation(seg, verbose=False, min_size=5, inplace=False)
+
+        # Input array must be unchanged
+        np.testing.assert_array_equal(seg, original)
+        # Returned array is a different object
+        assert cleaned is not seg
+
+    def test_inplace_true_modifies_input(self):
+        """Test that inplace=True modifies the original array and returns it."""
+        seg = np.zeros((2, 15, 15), dtype=np.int32)
+        seg[0, 2:8, 2:8] = 1
+        seg[0, 12:14, 12:14] = 1  # small disconnected fragment
+
+        result = clean_segmentation(seg, verbose=False, min_size=5, inplace=True)
+
+        # The returned object is the same array that was passed in
+        assert result is seg
+
+    def test_inplace_true_produces_same_result_as_copy(self):
+        """Test that inplace=True produces identical output to inplace=False."""
+        seg = np.zeros((2, 15, 15), dtype=np.int32)
+        seg[0, 2:8, 2:8] = 1
+        seg[0, 12:14, 12:14] = 1  # small disconnected fragment
+        seg[1, 3:9, 3:9] = 2
+
+        cleaned_copy = clean_segmentation(seg.copy(), verbose=False, min_size=5, inplace=False)
+        cleaned_inplace = clean_segmentation(seg.copy(), verbose=False, min_size=5, inplace=True)
+
+        np.testing.assert_array_equal(cleaned_copy, cleaned_inplace)
+
 
 class TestGetCleaningStats:
     """Tests for the get_cleaning_stats function."""
